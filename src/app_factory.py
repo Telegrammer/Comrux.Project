@@ -19,8 +19,11 @@ from setup import (
 from presentation.http import projects_router
 
 
-logger = logging.getLogger("app_factory")
-logger.setLevel(logging.INFO)
+logger = logging.getLogger("__name__")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 def create_app() -> FastAPI:
     container: AsyncContainer = make_async_container(
