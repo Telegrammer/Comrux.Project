@@ -1,6 +1,17 @@
 name: project
 
 services:
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${ADMIN_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${ADMIN_PASSWORD}
+      - PGADMIN_CONFIG_SERVER_MODE=${SERVER_MODE}
+    ports:
+      - "5050:80"
+    depends_on:
+      - pg
   pg:
     image: postgres
     environment:
