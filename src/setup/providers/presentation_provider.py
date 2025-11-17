@@ -13,6 +13,8 @@ from presentation.presenters import (
 from presentation.handlers import (
     CreateProjectHandler,
     ListProjectsHandler,
+    UpdateProjectHandler,
+    DeleteProjectHandler,
 )
 
 
@@ -24,3 +26,5 @@ class PresentationProvider(Provider):
     create_project_handler = provide(CreateProjectHandler)
     orders_presenter = provide(OrdersPresenter)
     list_projects_handler = provide(ListProjectsHandler)
+    update_project_handler = provide(UpdateProjectHandler)
+    delete_project_handler = provide(DeleteProjectHandler)

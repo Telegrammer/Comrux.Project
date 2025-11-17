@@ -9,10 +9,14 @@ from setup.config import Settings
 
 from application.compositions import (
     CreateProjectComposition,
+    UpdateProjectComposition,
+    DeleteProjectComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
     ListProjectsUsecase,
+    UpdateProjectUsecase,
+    DeleteProjectUsecase,
 )
 from application.ports import Clock
 from application.ports.gateways import (
@@ -48,3 +52,7 @@ class ApplicationProvider(Provider):
     create_project_usecase = provide(CreateProjectUsecase)
     create_project_composition = provide(CreateProjectComposition)
     list_projects_usecase = provide(ListProjectsUsecase)
+    update_project_usecase = provide(UpdateProjectUsecase)
+    update_project_composition = provide(UpdateProjectComposition)
+    delete_project_usecase = provide(DeleteProjectUsecase)
+    delete_project_composition = provide(DeleteProjectComposition)
