@@ -1,1 +1,4 @@
-from .id_generators import ProjectIdGenerator
+from .id_generators import (
+    ProjectIdGenerator,
+    UserIdGenerator,
+)
