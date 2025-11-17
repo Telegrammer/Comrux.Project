@@ -1,2 +1,3 @@
 from .create_project import CreateProjectComposition
 from .update_project import UpdateProjectComposition
+from .delete_project import DeleteProjectComposition
