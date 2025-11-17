@@ -1,5 +1,6 @@
 __all__ = ["error_aware", "create_error_aware_decorator"]
 
+import logging
 
 import inspect
 from typing import Type, Callable, TypeAlias
@@ -9,6 +10,7 @@ from application.exceptions.base import ApplicationError
 
 
 type ErrorFactory = Callable[[Exception], ApplicationError]
+logger = logging.getLogger(__name__)
 
 
 def error_aware(
@@ -24,10 +26,19 @@ def error_aware(
 
     def decorator[T, **P](func: Callable[P, T]) -> Callable[P, T]:
         def handle_error(unknown: Exception) -> None:
+            target_name: str = func.__qualname__
             excepted_error_factory = flatten_error_map.get(type(unknown), None)
             if not excepted_error_factory:
                 raise
-            raise excepted_error_factory(unknown) from unknown
+
+            app_error = excepted_error_factory(unknown)
+            logger.error(
+                "Infrastructure exception '%s' caught in '%s'. Converting to application error '%s'.",
+                type(unknown).__name__,
+                target_name,
+                type(app_error).__name__,
+            )
+            raise app_error from unknown
 
         @functools.wraps(func)
         def sync_handler(*args: P.args, **kwargs: P.kwargs) -> T:
