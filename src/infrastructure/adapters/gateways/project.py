@@ -47,27 +47,36 @@ class SqlAlchemyProjectCommandGateway:
         self._session: AsyncSession = session
         self._mapper: SqlAlchemyProjectMapper = mapper
 
-    @network_error_aware("Cannot add project: projects are unreachable via network")
+    @network_error_aware("Cannot add project: there is no place to add him via network")
+    @unique_violation_aware(
+        ProjectAlreadyExistsError("Project with the same data already exists")
+    )
     async def add(self, project: Project):
-        try:
-            orm_user: OrmProject = self._mapper.to_dto(project)
-            self._session.add(orm_user)
-            await self._session.flush()
-        except IntegrityError as e:
-            original_error = e.orig
-            if (
-                getattr(original_error, "sqlstate", None)
-                != UniqueViolationError.sqlstate
-            ):
-                raise
+        orm_project: OrmProject = self._mapper.to_dto(project)
+        self._session.add(orm_project)
+        await self._session.flush()
 
-            error_detail: str = str(original_error).split("\n")[1]
-            if error_detail.startswith("DETAIL:  Key (id_)"):
-                raise GatewayFailedError(
-                    "Somehow user was created with the same id. Please try again"
-                )
+    @network_error_aware("Cannot update project: project are unreachable via network")
+    async def update(self, project: Project) -> None:
+        orm_project: OrmProject = self._mapper.to_dto(project)
+        await self._session.merge(orm_project)
 
-            raise ProjectAlreadyExistsError("Project with the same data already exists")
+    @singledispatchmethod
+    async def delete(obj) -> None:
+        raise NotImplementedError
+
+    @network_error_aware("Cannot delete project: project are unreachable via network")
+    @delete.register(Project)
+    async def _(self, obj: Project) -> None:
+        orm_project: OrmProject = self._mapper.to_dto(obj)
+        persisted: OrmProject = await self._session.merge(orm_project)
+        await self._session.delete(persisted)
+
+    @network_error_aware("Cannot delete project: project are unreachable via network")
+    @delete.register(ProjectId)
+    async def _(self, obj: ProjectId):
+        stmt: Delete = sql_delete(OrmProject).where(OrmProject.id_ == obj)
+        await self._session.execute(stmt)
 
 
 class SqlAlchemyProjectQueryGateway:
