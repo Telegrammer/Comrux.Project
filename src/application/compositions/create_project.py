@@ -25,6 +25,6 @@ class CreateProjectComposition:
     async def __call__(self, request: CreateProjectRequest) -> CreateProjectResponse:
         async with self._unit_of_work:
             logger.info("Project creation started")
-            response = await self._usecase(request)
-            logger.info("Project created")
+            response: CreateProjectResponse = await self._usecase(request)
+            logger.info("Project %s was created", response["project_id"])
             return response
