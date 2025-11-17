@@ -16,3 +16,7 @@ class ProjectCreated(BaseModel):
 class ProjectRead(ProjectCreate):
     id_: str
     created_at: datetime
+
+
+class ProjectUpdate(ProjectCreate):
+    ...
