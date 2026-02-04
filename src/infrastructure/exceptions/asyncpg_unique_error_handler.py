@@ -10,12 +10,12 @@ from asyncpg import UniqueViolationError
 
 
 from application.ports.gateways.errors import GatewayFailedError
-from application.exceptions import ApplicationError
+from application.exceptions import ApplicationError, EntityAlreadyExistsError
 
 logger = logging.getLogger(__name__)
 
 
-def unique_violation_aware(model_error: ApplicationError):
+def unique_violation_aware(model_error: ApplicationError, is_idempotent: bool = False):
 
     def decorator[**P, T](
         command: Callable[P, Awaitable[T]],
@@ -45,8 +45,8 @@ def unique_violation_aware(model_error: ApplicationError):
                     model_error.__name__,
                     error_detail,
                 )
-                if error_detail.startswith("DETAIL:  Key (id_)"):
-                    raise GatewayFailedError(
+                if error_detail.startswith("DETAIL:  Key (id_)") and not is_idempotent:
+                    raise EntityAlreadyExistsError(
                         "Somehow object was created with the same id. Please try again"
                     )
 
