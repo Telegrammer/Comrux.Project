@@ -1,4 +1,3 @@
-# from .user import UserCommandGateway, UserQueryGateway
 from .query_params import (
     SortingOrder,
     SortingParam,
@@ -6,5 +5,6 @@ from .query_params import (
     OffsetPagination,
     ProjectListParams,
 )
+from .user import UserCommandGateway, UserQueryGateway
 from .project import ProjectCommandGateway, ProjectQueryGateway
 from .errors import GatewayFailedError

@@ -1,4 +1,1 @@
-from .controllers import projects_router
-
-
-__all__ = [projects_router]
+from .controllers import projects_router, users_router

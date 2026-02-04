@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import BaseModel, field_validator
-from pydantic import PostgresDsn, RedisDsn
+from pydantic import PostgresDsn, KafkaDsn
 from pathlib import Path
 from enum import StrEnum
 
@@ -11,6 +11,32 @@ BASE_DIR = Path(__file__).parent.parent.parent
 class RunConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8008
+
+
+class TransportConfig(BaseModel):
+    kafka_url: KafkaDsn
+
+
+class AuthConfig(BaseModel): ...
+
+
+class JwtAuthConfig(AuthConfig):
+    public_key: Path = BASE_DIR / "certificates" / "jwt-public.pem"
+    algorithm: str
+
+    @field_validator("algorithm")
+    def validate_algorithm(cls, value: str) -> str:
+        allowed: list[str] = [
+            "RS256",
+            "RS2048",
+        ]
+
+        if value in allowed:
+            return value
+        else:
+            raise ValueError(
+                f"""Current algorithm "{value}" is not allowed. Allowed: f{", ".join(allowed)}"""
+            )
 
 
 class DatabaseConfig(BaseModel):
@@ -29,9 +55,6 @@ class DatabaseConfig(BaseModel):
     }
 
 
-
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env_app",
@@ -41,5 +64,8 @@ class Settings(BaseSettings):
     )
     run: RunConfig = RunConfig()
     db: DatabaseConfig
+    transport: TransportConfig
+    auth: JwtAuthConfig
+
 
 settings = Settings()

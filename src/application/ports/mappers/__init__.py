@@ -1,2 +1,5 @@
-from .base import ProjectMapper
+from .base import (
+    ProjectMapper,
+    UserMapper,
+)
 from .errors import MappingError

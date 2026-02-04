@@ -4,3 +4,8 @@ from .project import (
     ProjectRead,
     ProjectUpdate,
 )
+from .user import (
+    UserCreate,
+    UserCreated
+)
+from .auth import AuthInfo
