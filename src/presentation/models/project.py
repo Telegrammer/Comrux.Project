@@ -15,8 +15,9 @@ class ProjectCreated(BaseModel):
 
 class ProjectRead(ProjectCreate):
     id_: str
+    owner_id: str
+    members_count: int
     created_at: datetime
 
 
-class ProjectUpdate(ProjectCreate):
-    ...
+class ProjectUpdate(ProjectCreate): ...

@@ -13,6 +13,11 @@ from application.ports.gateways.errors import GatewayFailedError
 from presentation.exceptions import IncorrectQueryParameterError
 from presentation.handlers import ListProjectsHandler
 from presentation.models import ProjectRead
+from presentation.http.controllers.dependencies import (
+    service_unavailable_rule,
+    log_info,
+)
+
 
 def create_list_projects_router() -> APIRouter:
     router = ErrorAwareRouter()
@@ -22,9 +27,10 @@ def create_list_projects_router() -> APIRouter:
         error_map={
             MappingError: status.HTTP_500_INTERNAL_SERVER_ERROR,
             DomainFieldError: status.HTTP_400_BAD_REQUEST,
-            GatewayFailedError: status.HTTP_503_SERVICE_UNAVAILABLE,
+            GatewayFailedError: service_unavailable_rule,
             IncorrectQueryParameterError: status.HTTP_400_BAD_REQUEST,
         },
+        default_on_error=log_info,
         status_code=status.HTTP_206_PARTIAL_CONTENT,
         response_model=list[ProjectRead],
     )

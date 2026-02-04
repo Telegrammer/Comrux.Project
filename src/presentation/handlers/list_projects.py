@@ -35,7 +35,10 @@ class ListProjectsHandler:
                 id_=elem["id_"],
                 title=elem["title"],
                 description=elem["description"],
+                owner_id=elem["owner_id"],
+                members_count=elem["members_count"],
                 created_at=elem["created_at"],
+                
             )
             for elem in response
         ]
