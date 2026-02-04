@@ -3,13 +3,19 @@ __all__ = ["UpdateProjectUsecase"]
 from datetime import datetime
 from dataclasses import dataclass
 from domain.value_objects import Title
-from domain import Project, ProjectId
+from domain import Project, ProjectId, User
 from domain.services import ProjectService
 
+from application.services import CurrentUserService
 from application.ports import Clock
 from application.ports.gateways import (
     ProjectQueryGateway,
     ProjectCommandGateway,
+)
+from application.ports.authorization import (
+    CanUpdateProject,
+    ProjectManagmentContext,
+    authorize,
 )
 from application.exceptions import ProjectNotFoundError
 
@@ -40,16 +46,23 @@ class UpdateProjectUsecase:
         project_service: ProjectService,
         project_queries: ProjectQueryGateway,
         project_commands: ProjectCommandGateway,
+        current_user: CurrentUserService,
     ):
         self._clock: Clock = clock
         self._project_service: ProjectService = project_service
         self._queries: ProjectQueryGateway = project_queries
         self._commands: ProjectCommandGateway = project_commands
+        self._current_user: CurrentUserService = current_user
 
     async def __call__(self, request: UpdateProjectRequest) -> None:
         now: datetime = self._clock.now()
         found_project: Project = await self._queries.by_id(request.project_id.value)
+        current_user: User = await self._current_user()
 
+        authorize(
+            CanUpdateProject(),
+            context=ProjectManagmentContext(subject=current_user, target=found_project),
+        )
         await self._commands.update(
             self._project_service.update_project(
                 project=found_project,

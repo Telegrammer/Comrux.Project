@@ -1,9 +1,9 @@
-__all__ = ["UserMapper", "AccessKeyMapper", "EmailVerififcationMapper"]
+__all__ = ["UserMapper", "ProjectMapper"]
 
 from abc import ABC, abstractmethod
 
 
-from domain import Entity, Project
+from domain import Entity, Project, User
 
 
 class DataMapper[TEntity: Entity, Tdto](ABC):
@@ -27,3 +27,6 @@ class DataMapper[TEntity: Entity, Tdto](ABC):
 
 
 class ProjectMapper[Project, Tdto](DataMapper): ...
+
+
+class UserMapper[User, Tdto](DataMapper): ...

@@ -7,9 +7,10 @@ from dataclasses import dataclass
 
 
 from domain.value_objects import Title
-from domain.entities import Project, ProjectId
+from domain.entities import Project, ProjectId, User
 from domain.services import ProjectService
 from application.ports import ProjectCommandGateway, Clock
+from application.services import CurrentUserService
 
 
 @dataclass
@@ -35,20 +36,24 @@ class CreateProjectUsecase:
 
     def __init__(
         self,
+        current_user_service: CurrentUserService,
         project_service: ProjectService,
         project_gateway: ProjectCommandGateway,
         clock: Clock,
     ):
-        self._project_service = project_service
-        self._project_gateway = project_gateway
-        self._clock = clock
+        self._current_user: CurrentUserService = current_user_service
+        self._project_service: ProjectService = project_service
+        self._project_gateway: ProjectCommandGateway = project_gateway
+        self._clock: Clock = clock
 
     async def __call__(self, request: CreateProjectRequest) -> CreateProjectResponse:
 
         now: datetime = self._clock.now()
+        current_user: User = await self._current_user()
         new_project: Project = self._project_service.create_project(
             title=request.title,
             description=request.description,
+            owner=current_user.id_,
             now=now,
         )
 

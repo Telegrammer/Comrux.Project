@@ -4,9 +4,15 @@ __all__ = ["DeleteProjectUsecase"]
 from dataclasses import dataclass
 
 
-from domain import Project, ProjectId
-from application.ports.gateways import ProjectQueryGateway, ProjectCommandGateway
+from domain import Project, ProjectId, User, UserId
 from application.exceptions import ProjectNotFoundError
+from application.ports.gateways import ProjectQueryGateway, ProjectCommandGateway
+from application.ports.authorization import (
+    CanDeleteProject,
+    ProjectManagmentContext,
+    authorize,
+)
+from application.services import CurrentUserService
 
 
 @dataclass
@@ -24,14 +30,22 @@ class DeleteProjectUsecase:
         self,
         project_queries: ProjectQueryGateway,
         project_commands: ProjectCommandGateway,
+        current_user: CurrentUserService,
     ):
         self._queries: ProjectQueryGateway = project_queries
         self._commands: ProjectCommandGateway = project_commands
+        self._current_user: CurrentUserService = current_user
 
     async def __call__(self, request: DeleteProjectRequest) -> None:
         try:
             found_project: Project = await self._queries.by_id(request.project_id.value)
         except ProjectNotFoundError:
             return
+
+        current_user: User = await self._current_user()
+        authorize(
+            CanDeleteProject(),
+            context=ProjectManagmentContext(subject=current_user, target=found_project),
+        )
 
         await self._commands.delete(found_project)

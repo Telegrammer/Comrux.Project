@@ -1,6 +1,7 @@
 __all__ = [
     "ApplicationError",
     "UsecaseError",
+    "EntityAlreadyExistsError"
 ]
 
 
@@ -8,3 +9,6 @@ class ApplicationError(Exception): ...
 
 
 class UsecaseError(ApplicationError): ...
+
+
+class EntityAlreadyExistsError(ApplicationError): ...
