@@ -19,7 +19,11 @@ class UserService:
         self._id_generator: UserIdGenerator = id_generator
 
     def create_user(
-        self, now: date, name: Name, bio: str, birthdate: date, projects: list[Project]
+        self,
+        now: date,
+        name: Name,
+        bio: str,
+        birthdate: date,
     ):
         verified_birthdate: BirthDate = BirthDate(
             birthdate,
@@ -32,5 +36,4 @@ class UserService:
             name=name,
             bio=bio,
             birthdate=verified_birthdate,
-            projects=projects,
         )
