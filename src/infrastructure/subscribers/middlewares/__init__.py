@@ -1,0 +1,1 @@
+from .inject_user_id_from_message import InjectUserIdFromMessageMiddleware
