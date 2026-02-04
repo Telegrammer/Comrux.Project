@@ -18,9 +18,6 @@ from sqlalchemy.exc import IntegrityError, InterfaceError
 from domain import Project, ProjectId
 
 from application.exceptions import ProjectAlreadyExistsError, ProjectNotFoundError
-from application.ports.gateways import (
-    ProjectCommandGateway,
-)
 from application.ports.gateways.errors import GatewayFailedError
 from application.ports.gateways.query_params import ProjectListParams
 from infrastructure.models import Project as OrmProject
@@ -62,14 +59,13 @@ class SqlAlchemyProjectCommandGateway:
         await self._session.merge(orm_project)
 
     @singledispatchmethod
-    async def delete(obj) -> None:
+    async def delete(self, obj) -> None:
         raise NotImplementedError
 
     @network_error_aware("Cannot delete project: project are unreachable via network")
     @delete.register(Project)
     async def _(self, obj: Project) -> None:
-        orm_project: OrmProject = self._mapper.to_dto(obj)
-        persisted: OrmProject = await self._session.merge(orm_project)
+        persisted: OrmProject = await self._session.get(OrmProject, obj.id_)
         await self._session.delete(persisted)
 
     @network_error_aware("Cannot delete project: project are unreachable via network")
