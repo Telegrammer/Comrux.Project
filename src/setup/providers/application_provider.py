@@ -15,6 +15,11 @@ from application.compositions import (
     UpdateProjectComposition,
     DeleteProjectComposition,
     CreateUserComposition,
+    AddProjectMemberComposition,
+    ListProjectMembersComposition,
+    RemoveProjectMemberComposition,
+    ListCurrentUserProjectsComposition,
+    GrantOwnerComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -22,6 +27,11 @@ from application.usecases import (
     UpdateProjectUsecase,
     DeleteProjectUsecase,
     CreateUserUsecase,
+    AddProjectMemberUsecase,
+    ListProjectMembersUsecase,
+    RemoveProjectMemberUsecase,
+    ListCurrentUserProjectsUsecase,
+    GrantOwnerUsecase,
 )
 from application.services import (
     CurrentUserService,
@@ -88,3 +98,13 @@ class ApplicationProvider(Provider):
     update_project_composition = provide(UpdateProjectComposition)
     delete_project_usecase = provide(DeleteProjectUsecase)
     delete_project_composition = provide(DeleteProjectComposition)
+    add_member_usecase = provide(AddProjectMemberUsecase)
+    add_member_composition = provide(AddProjectMemberComposition)
+    list_project_members_usecase = provide(ListProjectMembersUsecase)
+    list_project_members_compostion = provide(ListProjectMembersComposition)
+    remove_member_usecase = provide(RemoveProjectMemberUsecase)
+    remover_member_composition = provide(RemoveProjectMemberComposition)
+    list_current_user_projects_usecase = provide(ListCurrentUserProjectsUsecase)
+    list_current_user_projects_composition = provide(ListCurrentUserProjectsComposition)
+    grant_owner_usecase = provide(GrantOwnerUsecase)
+    grant_owner_comosition = provide(GrantOwnerComposition)

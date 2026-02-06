@@ -22,6 +22,7 @@ from setup import (
 from presentation.http import (
     projects_router,
     users_router,
+    current_user_router,
 )
 from presentation.http.middleware import (
     InjectAuthInfoMiddleware,
@@ -83,5 +84,6 @@ def create_app() -> FastAPI:
     )
 
     fastapi_integration.setup_dishka(container=container, app=app)
+
     logger.info("App created")
     return app
