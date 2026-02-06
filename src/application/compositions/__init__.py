@@ -2,3 +2,8 @@ from .create_project import CreateProjectComposition
 from .update_project import UpdateProjectComposition
 from .delete_project import DeleteProjectComposition
 from .create_user import CreateUserComposition
+from .add_project_member import AddProjectMemberComposition
+from .remove_project_member import RemoveProjectMemberComposition
+from .list_project_members import ListProjectMembersComposition
+from .list_current_user_projects import ListCurrentUserProjectsComposition
+from .grant_owner import GrantOwnerComposition
