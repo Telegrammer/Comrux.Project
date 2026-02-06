@@ -57,12 +57,14 @@ class UpdateProjectUsecase:
     async def __call__(self, request: UpdateProjectRequest) -> None:
         now: datetime = self._clock.now()
         found_project: Project = await self._queries.by_id(request.project_id.value)
+
         current_user: User = await self._current_user()
 
         authorize(
             CanUpdateProject(),
             context=ProjectManagmentContext(subject=current_user, target=found_project),
         )
+
         await self._commands.update(
             self._project_service.update_project(
                 project=found_project,
