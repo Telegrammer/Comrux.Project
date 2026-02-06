@@ -3,3 +3,8 @@ from .list_projects import ListProjectsHandler
 from .update_project import UpdateProjectHandler
 from .delete_project import DeleteProjectHandler
 from .create_user import CreateUserHandler
+from .add_project_member import AddProjectMemberHandler
+from .list_project_members import ListProjectMembersHandler
+from .remove_project_member import RemoveProjectMemberHandler
+from .list_current_user_objects_project import ListCurrentUserProjectsHandler
+from .grant_owner import GrantOwnerHandler

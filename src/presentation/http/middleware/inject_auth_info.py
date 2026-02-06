@@ -30,7 +30,9 @@ class InjectAuthInfoMiddleware(BaseHTTPMiddleware):
         self._auth_info_extractor = None
         super().__init__(app, dispatch)
 
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
 
         if not self._auth_info_extractor:
             app_container: AsyncContainer = request.app.state.dishka_container

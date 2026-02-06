@@ -16,6 +16,5 @@ class BearerAuthInfoExtractor(AuthInfoExtractor):
 
         if not (auth_header and auth_header.startswith("Bearer ")):
             return None
-
         credentials: bytes = auth_header.replace("Bearer ", "").encode()
         return self._presenter.to_auth_info(credentials)
