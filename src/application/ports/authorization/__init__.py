@@ -1,4 +1,4 @@
-from .composite import AnyOf
+from .composite import AnyOf, AllOf
 from .permissions import (
     CanDeleteProject,
     CanManageRole,

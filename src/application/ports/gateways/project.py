@@ -3,7 +3,8 @@ __all__ = ["ProjectCommandGateway", "ProjectQueryGateway"]
 from abc import abstractmethod
 from typing import Protocol, Sequence
 
-from domain import Project, ProjectId
+from domain import Project, ProjectId, UserId
+from domain.enums import ProjectRole
 from .query_params import ProjectListParams
 
 
@@ -30,4 +31,10 @@ class ProjectQueryGateway(Protocol):
 
     @abstractmethod
     async def read_all(self, params: ProjectListParams) -> Sequence[Project]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def by_user(
+        self, user_id: UserId, role: ProjectRole
+    ) -> Sequence[tuple[Project, ProjectRole]]:
         raise NotImplementedError
