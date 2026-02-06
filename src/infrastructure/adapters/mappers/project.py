@@ -24,7 +24,7 @@ from infrastructure.models import (
 class SqlAlchemyProjectMapper(ProjectMapper[Project, OrmProject]):
 
     def to_dto(self, entity: Project) -> OrmProject:
-
+        
         return OrmProject(
             id_=entity.id_,
             title=entity.title,

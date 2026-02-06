@@ -15,7 +15,7 @@ from application.exceptions import ApplicationError, EntityAlreadyExistsError
 logger = logging.getLogger(__name__)
 
 
-def unique_violation_aware(model_error: ApplicationError, is_idempotent: bool = False):
+def unique_violation_aware(model_error: ApplicationError):
 
     def decorator[**P, T](
         command: Callable[P, Awaitable[T]],
@@ -42,10 +42,10 @@ def unique_violation_aware(model_error: ApplicationError, is_idempotent: bool = 
                 logger.warning(
                     "UniqueViolationError detected in function/method '%s'. Converting to application error '%s'. Error details: %s",
                     target_name,
-                    model_error.__name__,
+                    model_error,
                     error_detail,
                 )
-                if error_detail.startswith("DETAIL:  Key (id_)") and not is_idempotent:
+                if error_detail.startswith("DETAIL:  Key ("):
                     raise EntityAlreadyExistsError(
                         "Somehow object was created with the same id. Please try again"
                     )

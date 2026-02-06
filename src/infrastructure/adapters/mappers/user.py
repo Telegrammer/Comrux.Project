@@ -11,14 +11,13 @@ from domain.value_objects import Name, BirthDate
 from domain import User, UserId
 
 from application.ports.gateways.query_params import (
-    ProjectListParams,
+    UserListParams,
     SortingOrder,
 )
 from application.ports.mappers import ProjectMapper
 from infrastructure.models import (
     User as OrmUser,
     SqlAlchemySearchParams,
-    ProjectMembership,
 )
 
 
@@ -49,7 +48,7 @@ class SqlAlchemyUserMapper(ProjectMapper[User, OrmUser]):
         )
 
     def generate_search_params(
-        self, params: ProjectListParams, model: Type[OrmUser]
+        self, params: UserListParams, model: Type[OrmUser]
     ) -> SqlAlchemySearchParams:
         orders: list[UnaryExpression] = []
 
@@ -67,4 +66,3 @@ class SqlAlchemyUserMapper(ProjectMapper[User, OrmUser]):
             )
 
         return SqlAlchemySearchParams(orders=orders)
-

@@ -1,15 +1,17 @@
 __all__ = ["SqlAlchemyUserCommandGateway", "SqlAlchemyUserQueryGateway"]
 
 
+from typing import Iterable, Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import InterfaceError
 from domain import User, UserId
 
 from application.exceptions import UserAlreadyExistsError, UserNotFoundError
+from application.ports import UserListParams
 from application.ports.gateways.errors import GatewayFailedError
 from infrastructure.adapters.mappers import SqlAlchemyUserMapper
-from infrastructure.models import User as OrmUser
+from infrastructure.models import User as OrmUser, SqlAlchemySearchParams
 from infrastructure.exceptions.common import create_error_aware_decorator
 from infrastructure.exceptions.asyncpg_unique_error_handler import (
     unique_violation_aware,
@@ -58,3 +60,25 @@ class SqlAlchemyUserQueryGateway:
         if not user:
             raise UserNotFoundError("User with given id does not exist")
         return self._mapper.to_domain(user)
+
+    @network_error_aware("Cannot find users: can't reach to them")
+    async def by_ids(
+        self, ids: Iterable[UserId], search_params: UserListParams
+    ) -> Sequence[User]:
+
+        search: SqlAlchemySearchParams = self._mapper.generate_search_params(
+            search_params, OrmUser
+        )
+        stmt = (
+            select(OrmUser)
+            .where(OrmUser.id_.in_(ids))
+            .order_by(*search.orders)
+            .slice(
+                search_params.pagination.offset,
+                search_params.pagination.offset + search_params.pagination.limit,
+            )
+        )
+
+        response = await self._session.scalars(stmt)
+        users: Sequence[User] = response.all()
+        return [self._mapper.to_domain(user) for user in users]

@@ -17,7 +17,9 @@ logger = logging.getLogger(__name__)
 user_created_sub_router = KafkaRouter()
 
 
-@user_created_sub_router.subscriber("user.created")
+@user_created_sub_router.subscriber(
+    "user.created", group_id="project-service", auto_offset_reset="earliest"
+)
 @inject
 async def create_user(usecase: FromDishka[CreateUserComposition], message: UserCreated):
     try:

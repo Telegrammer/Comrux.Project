@@ -5,18 +5,13 @@ from typing import Sequence
 from functools import singledispatchmethod
 
 
-from sqlalchemy import (
-    select,
-    Select,
-    delete as sql_delete,
-    Delete,
-)
+from sqlalchemy import select, Select, delete as sql_delete, Delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError, InterfaceError
 
 
-from domain import Project, ProjectId
-
+from domain import Project, ProjectId, UserId
+from domain.enums import ProjectRole
 from application.exceptions import ProjectAlreadyExistsError, ProjectNotFoundError
 from application.ports.gateways.errors import GatewayFailedError
 from application.ports.gateways.query_params import ProjectListParams
@@ -27,7 +22,7 @@ from infrastructure.exceptions import (
 )
 from infrastructure.adapters.mappers import SqlAlchemyProjectMapper
 from infrastructure.models.search_params import SqlAlchemySearchParams
-
+from infrastructure.models import ProjectMembership
 
 network_error_aware = create_error_aware_decorator(
     {
@@ -88,13 +83,13 @@ class SqlAlchemyProjectQueryGateway:
             params, OrmProject
         )
 
-        stmt: Select = select(OrmProject)
-
-        if search.orders:
-            stmt = stmt.order_by(*search.orders)
-
-        stmt = stmt.slice(
-            params.pagination.offset, params.pagination.offset + params.pagination.limit
+        stmt: Select = (
+            select(OrmProject)
+            .order_by(*search.orders)
+            .slice(
+                params.pagination.offset,
+                params.pagination.offset + params.pagination.limit,
+            )
         )
 
         response = await self._session.scalars(stmt)
@@ -112,3 +107,26 @@ class SqlAlchemyProjectQueryGateway:
             raise ProjectNotFoundError("Project with given id does not exists")
 
         return self._mapper.to_domain(project)
+
+    @network_error_aware("Cannot get projects: projects are unreachable via network")
+    async def by_user(
+        self, user_id: UserId, role: ProjectRole, params: ProjectListParams
+    ) -> Sequence[Project]:
+
+        search = self._mapper.generate_search_params(params, OrmProject)
+        stmt = (
+            select(
+                OrmProject,
+                ProjectMembership.role.label("member_role"),
+            )
+            .join(ProjectMembership, ProjectMembership.project_id == OrmProject.id_)
+            .where(ProjectMembership.user_id == user_id)
+            .where(or_(role is None, ProjectMembership.role == role))
+        )
+        stmt = stmt.order_by(*search.orders).slice(
+            params.pagination.offset, params.pagination.offset + params.pagination.limit
+        )
+        response: Sequence[tuple[OrmProject, ProjectRole]] = (
+            await self._session.execute(stmt)
+        ).all()
+        return [(self._mapper.to_domain(proj), role) for proj, role in response]
