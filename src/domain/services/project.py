@@ -4,7 +4,7 @@ from domain.value_objects import Title, PassedDatetime
 from domain.entities import Project, ProjectId, UserId
 from domain.ports import ProjectIdGenerator
 from domain.enums import ProjectRole
-from domain.exceptions import DomainError
+from domain.exceptions import ProjectMustHaveOwnerError, MemberNotFoundError
 
 
 class ProjectService:
@@ -36,7 +36,7 @@ class ProjectService:
 
     def add_member(self, project: Project, member: UserId, now: datetime) -> Project:
 
-        project.members[member] = ProjectRole.MEMBER
+        project.members[UserId(member)] = ProjectRole.MEMBER
 
         return Project(
             id_=ProjectId(project.id_),
@@ -51,9 +51,9 @@ class ProjectService:
     ) -> Project:
         if not project.members.get(removed_member, None):
             return project
-        
-        if self.get_owner_id(project).value == removed_member:
-            raise DomainError("Project must have owner")
+
+        if self.get_owner_id(project) == removed_member:
+            raise ProjectMustHaveOwnerError("Every project must have owner")
 
         project.members.pop(removed_member)
         return Project(
@@ -69,4 +69,21 @@ class ProjectService:
         for user_id in project.members.keys():
             if project.members.get(user_id) == ProjectRole.OWNER:
                 return user_id
-        raise DomainError("Project doesen't have owner")
+        raise ProjectMustHaveOwnerError("Project doesen't have owner")
+
+    def grant_owner(self, project: Project, new_owner: UserId, now) -> Project:
+        if not project.members.get(new_owner):
+            raise MemberNotFoundError(
+                f"New owner {new_owner.value} doesen't belong to project {project.id_}"
+            )
+        owner_id: UserId = self.get_owner_id(project)
+        new_members: dict[UserId, ProjectRole] = project.members.copy()
+        new_members[owner_id] = ProjectRole.LEAD
+        new_members[new_owner] = ProjectRole.OWNER
+        return Project(
+            id_=ProjectId(project.id_),
+            title=Title(project.title),
+            description=project.description,
+            created_at=PassedDatetime(project.created_at, now),
+            members=new_members,
+        )
