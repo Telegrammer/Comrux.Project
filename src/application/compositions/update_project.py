@@ -6,7 +6,7 @@ import logging
 
 from application.usecases import UpdateProjectRequest, UpdateProjectUsecase
 from application.ports import UnitOfWork
-
+from application.exceptions.handlers import retry_on_conflict
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ class UpdateProjectComposition:
         self._usecase = usecase
         self._unit_of_work = unit_of_work
 
+    @retry_on_conflict()
     async def __call__(self, request: UpdateProjectRequest) -> None:
 
         async with self._unit_of_work:

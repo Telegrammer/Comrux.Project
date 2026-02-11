@@ -7,3 +7,4 @@ from .remove_project_member import RemoveProjectMemberComposition
 from .list_project_members import ListProjectMembersComposition
 from .list_current_user_projects import ListCurrentUserProjectsComposition
 from .grant_owner import GrantOwnerComposition
+from .set_member_role import SetMemberRoleComposition

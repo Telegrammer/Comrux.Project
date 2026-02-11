@@ -9,6 +9,7 @@ from application.usecases import (
     GrantOwnerUsecase,
     GrantOwnerResponse,
 )
+from application.exceptions.handlers import retry_on_conflict
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ class GrantOwnerComposition:
         self._unit_of_work: UnitOfWork = unit_of_work
         self._usecase: GrantOwnerUsecase = usecase
 
+    @retry_on_conflict()
     async def __call__(self, request: GrantOwnerRequest) -> GrantOwnerResponse:
         async with self._unit_of_work:
             logger.info(

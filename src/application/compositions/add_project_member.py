@@ -9,6 +9,7 @@ from application.usecases import (
     AddProjectMemberUsecase,
     AddProjectMemberResponse,
 )
+from application.exceptions.handlers import retry_on_conflict
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ class AddProjectMemberComposition:
         self._unit_of_work: UnitOfWork = unit_of_work
         self._usecase: AddProjectMemberUsecase = usecase
 
+    @retry_on_conflict()
     async def __call__(
         self, request: AddProjectMemberRequest
     ) -> AddProjectMemberResponse:
