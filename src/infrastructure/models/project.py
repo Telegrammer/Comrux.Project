@@ -14,6 +14,13 @@ class Project(Base):
     title: Mapped[str] = mapped_column(nullable=False)
     description: Mapped[str] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(nullable=True)
     members: Mapped[list[ProjectMembership]] = relationship(
-        back_populates="project", cascade="all, delete-orphan", lazy="selectin",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
+
+    version: Mapped[int] = mapped_column(nullable=False)
+
+    __mapper_args__ = {"version_id_col": version}

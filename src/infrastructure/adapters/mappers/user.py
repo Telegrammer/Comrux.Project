@@ -18,19 +18,19 @@ from application.ports.mappers import ProjectMapper
 from infrastructure.models import (
     User as OrmUser,
     SqlAlchemySearchParams,
+    ProjectMembership,
 )
 
 
 class SqlAlchemyUserMapper(ProjectMapper[User, OrmUser]):
 
-    def to_dto(self, entity: User) -> OrmUser:
+    def to_dto(self, entity: User, old_dto: OrmUser | None = None) -> OrmUser:
 
         return OrmUser(
             id_=entity.id_,
             name=entity.name,
             bio=entity.bio,
             birthdate=entity.birthdate,
-            memberships=[],
         )
 
     def to_domain(self, dto: OrmUser) -> User:

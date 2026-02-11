@@ -14,6 +14,7 @@ from application.ports.gateways.query_params import (
     SortingOrder,
 )
 from application.ports.mappers import ProjectMapper
+from application.ports import Clock
 from infrastructure.models import (
     Project as OrmProject,
     SqlAlchemySearchParams,
@@ -23,17 +24,25 @@ from infrastructure.models import (
 
 class SqlAlchemyProjectMapper(ProjectMapper[Project, OrmProject]):
 
-    def to_dto(self, entity: Project) -> OrmProject:
-        
+    def __init__(self, clock: Clock):
+        self._clock: Clock = clock
+
+    def to_dto(self, entity: Project, old_dto: OrmProject | None = None) -> OrmProject:
+
+        version: int = old_dto.version if old_dto else 1
         return OrmProject(
             id_=entity.id_,
             title=entity.title,
             description=entity.description,
             created_at=entity.created_at,
+            updated_at=self._clock.now(),
             members=[
-                ProjectMembership(project_id=entity.id_, user_id=user_id.value, role=role)
+                ProjectMembership(
+                    project_id=entity.id_, user_id=user_id.value, role=role
+                )
                 for user_id, role in entity.members.items()
             ],
+            version=version,
         )
 
     def to_domain(self, dto: OrmProject) -> Project:

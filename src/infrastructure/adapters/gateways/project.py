@@ -7,12 +7,17 @@ from functools import singledispatchmethod
 
 from sqlalchemy import select, Select, delete as sql_delete, Delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError, InterfaceError
+from sqlalchemy.exc import InterfaceError
+from sqlalchemy.orm.exc import StaleDataError
 
 
 from domain import Project, ProjectId, UserId
 from domain.enums import ProjectRole
-from application.exceptions import ProjectAlreadyExistsError, ProjectNotFoundError
+from application.exceptions import (
+    ProjectAlreadyExistsError,
+    ProjectNotFoundError,
+    InconsistentDataError,
+)
 from application.ports.gateways.errors import GatewayFailedError
 from application.ports.gateways.query_params import ProjectListParams
 from infrastructure.models import Project as OrmProject
@@ -31,6 +36,9 @@ network_error_aware = create_error_aware_decorator(
         ): GatewayFailedError
     }
 )
+stale_data_error_aware = create_error_aware_decorator(
+    {frozenset({StaleDataError}): InconsistentDataError}
+)
 
 
 class SqlAlchemyProjectCommandGateway:
@@ -39,19 +47,22 @@ class SqlAlchemyProjectCommandGateway:
         self._session: AsyncSession = session
         self._mapper: SqlAlchemyProjectMapper = mapper
 
-    @network_error_aware("Cannot add project: there is no place to add him via network")
     @unique_violation_aware(
         ProjectAlreadyExistsError("Project with the same data already exists")
     )
+    @network_error_aware("Cannot add project: there is no place to add him via network")
     async def add(self, project: Project):
         orm_project: OrmProject = self._mapper.to_dto(project)
         self._session.add(orm_project)
         await self._session.flush()
 
+    @stale_data_error_aware("Application and database project are different")
     @network_error_aware("Cannot update project: project are unreachable via network")
     async def update(self, project: Project) -> None:
-        orm_project: OrmProject = self._mapper.to_dto(project)
+        old_dto: OrmProject = await self._session.get(OrmProject, project.id_)
+        orm_project: OrmProject = self._mapper.to_dto(project, old_dto)
         await self._session.merge(orm_project)
+        await self._session.flush()
 
     @singledispatchmethod
     async def delete(self, obj) -> None:
@@ -111,7 +122,7 @@ class SqlAlchemyProjectQueryGateway:
     @network_error_aware("Cannot get projects: projects are unreachable via network")
     async def by_user(
         self, user_id: UserId, role: ProjectRole, params: ProjectListParams
-    ) -> Sequence[Project]:
+    ) -> Sequence[tuple[Project, ProjectRole]]:
 
         search = self._mapper.generate_search_params(params, OrmProject)
         stmt = (
