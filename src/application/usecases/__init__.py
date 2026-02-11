@@ -45,3 +45,8 @@ from .grant_owner import (
     GrantOwnerUsecase,
     GrantOwnerResponse,
 )
+from .set_member_role import (
+    SetMemberRoleRequest,
+    SetMemberRoleUsecase,
+    SetMemberRoleResponse,
+)

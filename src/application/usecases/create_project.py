@@ -7,9 +7,9 @@ from dataclasses import dataclass
 
 
 from domain.value_objects import Title
-from domain.entities import Project, ProjectId, User
-from domain.services import ProjectService
-from application.ports import ProjectCommandGateway, Clock
+from domain.entities import Project, ProjectId, User, UserId
+from domain.services import ProjectService, DirectoryService
+from application.ports import ProjectCommandGateway, Clock, DirectoryCommandGateway
 from application.services import CurrentUserService
 
 
@@ -39,11 +39,15 @@ class CreateProjectUsecase:
         current_user_service: CurrentUserService,
         project_service: ProjectService,
         project_gateway: ProjectCommandGateway,
+        directory_service: DirectoryService,
+        directory_gateway: DirectoryCommandGateway,
         clock: Clock,
     ):
         self._current_user: CurrentUserService = current_user_service
         self._project_service: ProjectService = project_service
         self._project_gateway: ProjectCommandGateway = project_gateway
+        self._directory_service: DirectoryService = directory_service
+        self._directory_gateway: DirectoryCommandGateway = directory_gateway
         self._clock: Clock = clock
 
     async def __call__(self, request: CreateProjectRequest) -> CreateProjectResponse:
@@ -56,6 +60,10 @@ class CreateProjectUsecase:
             owner=current_user.id_,
             now=now,
         )
+        root_directory = self._directory_service.create_root_directory(
+            new_project, UserId(current_user.id_), now
+        )
 
         await self._project_gateway.add(new_project)
+        await self._directory_gateway.add(root_directory)
         return CreateProjectResponse.from_entity(new_project)
