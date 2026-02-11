@@ -20,6 +20,7 @@ from application.compositions import (
     RemoveProjectMemberComposition,
     ListCurrentUserProjectsComposition,
     GrantOwnerComposition,
+    SetMemberRoleComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -32,6 +33,7 @@ from application.usecases import (
     RemoveProjectMemberUsecase,
     ListCurrentUserProjectsUsecase,
     GrantOwnerUsecase,
+    SetMemberRoleUsecase,
 )
 from application.services import (
     CurrentUserService,
@@ -108,3 +110,5 @@ class ApplicationProvider(Provider):
     list_current_user_projects_composition = provide(ListCurrentUserProjectsComposition)
     grant_owner_usecase = provide(GrantOwnerUsecase)
     grant_owner_comosition = provide(GrantOwnerComposition)
+    set_role_usecase = provide(SetMemberRoleUsecase)
+    set_role_composition = provide(SetMemberRoleComposition)

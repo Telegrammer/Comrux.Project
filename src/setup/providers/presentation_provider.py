@@ -24,6 +24,7 @@ from presentation.handlers import (
     RemoveProjectMemberHandler,
     ListCurrentUserProjectsHandler,
     GrantOwnerHandler,
+    SetMemberRoleHandler,
 )
 from presentation.http.middleware.extratctors.auth_info.bearer import (
     BearerAuthInfoExtractor,
@@ -64,3 +65,4 @@ class PresentationProvider(Provider):
     remove_project_member_handler = provide(RemoveProjectMemberHandler)
     list_current_user_projects_handler = provide(ListCurrentUserProjectsHandler)
     grant_owner_handler = provide(GrantOwnerHandler)
+    set_role_handler = provide(SetMemberRoleHandler)
