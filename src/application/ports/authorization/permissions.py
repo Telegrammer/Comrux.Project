@@ -42,7 +42,7 @@ class CanUpdateProject(Permission[ProjectManagmentContext]):
     def is_satisfied_by(self, context: ProjectManagmentContext) -> bool:
         subject_id: UserId = context.subject.id_
         subject_role: ProjectRole = context.target.members.get(UserId(subject_id), None)
-        if subject_role == ProjectRole.OWNER:
+        if subject_role in {ProjectRole.OWNER, ProjectRole.LEAD}:
             return AuthorizationResult(True)
         return AuthorizationResult(
             False, "Project meta can't be updated by members/guests"
@@ -53,6 +53,7 @@ class CanUpdateProject(Permission[ProjectManagmentContext]):
 class RoleManagementContext(PermissionContext):
     subject_role: ProjectRole
     target_role: ProjectRole
+    new_role: ProjectRole
 
 
 class CanManageRole(Permission[RoleManagementContext]):
@@ -64,10 +65,19 @@ class CanManageRole(Permission[RoleManagementContext]):
 
     def is_satisfied_by(self, context: RoleManagementContext) -> bool:
         allowed_roles = self._role_hierarchy.get(context.subject_role, set())
-        if context.target_role in allowed_roles:
-            return AuthorizationResult(True)
-        return AuthorizationResult(
-            False,
-            f"""Subject's role ({context.subject_role}) don't allow
-            to manage target role ({context.target_role})""",
-        )
+
+        if context.target_role not in allowed_roles:
+            return AuthorizationResult(
+                False,
+                f"""Subject's role ({context.subject_role}) don't allow
+                to manage target role ({context.target_role})""",
+            )
+
+        if context.new_role not in allowed_roles:
+            return AuthorizationResult(
+                False,
+                f"""Current role ({context.subject_role}) don't allow
+                to set higher role ({context.new_role}) then self""",
+            )
+
+        return AuthorizationResult(True)

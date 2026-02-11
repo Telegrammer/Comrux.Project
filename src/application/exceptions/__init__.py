@@ -2,6 +2,7 @@ from .base import (
     ApplicationError,
     UsecaseError,
     EntityAlreadyExistsError,
+    InconsistentDataError,
 )
 from .project import (
     ProjectAlreadyExistsError,

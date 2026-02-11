@@ -1,8 +1,4 @@
-__all__ = [
-    "ApplicationError",
-    "UsecaseError",
-    "EntityAlreadyExistsError"
-]
+__all__ = ["ApplicationError", "UsecaseError", "EntityAlreadyExistsError"]
 
 
 class ApplicationError(Exception): ...
@@ -12,3 +8,6 @@ class UsecaseError(ApplicationError): ...
 
 
 class EntityAlreadyExistsError(ApplicationError): ...
+
+
+class InconsistentDataError(ApplicationError): ...

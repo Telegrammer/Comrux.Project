@@ -9,10 +9,7 @@ from domain import Entity, Project, User
 class DataMapper[TEntity: Entity, Tdto](ABC):
 
     @abstractmethod
-    def to_dto(
-        self,
-        entity: TEntity,
-    ) -> Tdto:
+    def to_dto(self, entity: TEntity, old_dto: Tdto | None = None) -> Tdto:
         raise NotImplementedError
 
     @abstractmethod
