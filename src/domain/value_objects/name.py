@@ -43,6 +43,6 @@ class Name(ValueObject[str]):
             return False
 
         for character in value:
-            if not (character.isalpha() or character in {".", "-", " "}):
+            if not (character.isalpha() or character in {".", "-", " ", "_"}):
                 return False
         return True

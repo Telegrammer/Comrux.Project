@@ -71,7 +71,9 @@ class ProjectService:
                 return user_id
         raise ProjectMustHaveOwnerError("Project doesen't have owner")
 
-    def grant_owner(self, project: Project, new_owner: UserId, now) -> Project:
+    def grant_owner(
+        self, project: Project, new_owner: UserId, now: datetime
+    ) -> Project:
         if not project.members.get(new_owner):
             raise MemberNotFoundError(
                 f"New owner {new_owner.value} doesen't belong to project {project.id_}"
@@ -80,6 +82,21 @@ class ProjectService:
         new_members: dict[UserId, ProjectRole] = project.members.copy()
         new_members[owner_id] = ProjectRole.LEAD
         new_members[new_owner] = ProjectRole.OWNER
+        return Project(
+            id_=ProjectId(project.id_),
+            title=Title(project.title),
+            description=project.description,
+            created_at=PassedDatetime(project.created_at, now),
+            members=new_members,
+        )
+
+    def set_role(
+        self, project: Project, member: UserId, new_role: ProjectRole, now: datetime
+    ) -> Project:
+
+        new_members: dict[UserId, ProjectRole] = project.members.copy()
+        new_members[member] = new_role
+
         return Project(
             id_=ProjectId(project.id_),
             title=Title(project.title),
