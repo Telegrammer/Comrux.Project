@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, UUID4
 from domain.enums import ProjectRole
+from typing import Literal
 
 
 class ProjectCreate(BaseModel):
@@ -61,4 +62,14 @@ class ProjectGrantOwner(BaseModel):
 class ProjectOwnerGranted(BaseModel):
     old_owner: str
     new_role: str
+    project: str
+
+
+class ProjectSetMemberRole(BaseModel):
+    role: Literal[ProjectRole.LEAD, ProjectRole.MEMBER]
+
+
+class ProjectMemberRoleReassigned(BaseModel):
+    member: str
+    old_role: Literal[ProjectRole.LEAD, ProjectRole.MEMBER]
     project: str

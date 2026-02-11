@@ -8,3 +8,4 @@ from .list_project_members import ListProjectMembersHandler
 from .remove_project_member import RemoveProjectMemberHandler
 from .list_current_user_objects_project import ListCurrentUserProjectsHandler
 from .grant_owner import GrantOwnerHandler
+from .set_member_role import SetMemberRoleHandler

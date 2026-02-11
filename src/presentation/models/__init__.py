@@ -11,6 +11,8 @@ from .project import (
     CurrentUserProjectRead,
     ProjectGrantOwner,
     ProjectOwnerGranted,
+    ProjectSetMemberRole,
+    ProjectMemberRoleReassigned,
 )
 from .user import UserCreate, UserCreated
 from .auth import AuthInfo

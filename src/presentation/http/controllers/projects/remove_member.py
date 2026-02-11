@@ -30,8 +30,8 @@ from presentation.http.controllers.dependencies import (
 def create_remove_member_router() -> APIRouter:
     router = ErrorAwareRouter()
 
-    @router.patch(
-        "/{project_id}/remove_member",
+    @router.delete(
+        "/{project_id}/members",
         error_map={
             MappingError: status.HTTP_500_INTERNAL_SERVER_ERROR,
             DomainFieldError: status.HTTP_400_BAD_REQUEST,
