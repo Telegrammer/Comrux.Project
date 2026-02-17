@@ -7,6 +7,10 @@ from .gateways import (
     ProjectQueryGateway,
     UserCommandGateway,
     UserQueryGateway,
+    DirectoryQueryGateway,
+    DocumentCommandGateway,
+    DirectoryCommandGateway,
+    ProjectUnitQueryGateway,
 )
 from .clock import Clock
 from .unit_of_work import UnitOfWork

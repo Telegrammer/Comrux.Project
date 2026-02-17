@@ -17,3 +17,12 @@ from .authorization import (
     ExpiredAccessKeyError,
     CurrentUserNotFoundError,
 )
+from .directory import (
+    DirectoryAlreadyExistsError,
+    DirectoryNotFoundError,
+    DirectoryNotInProjectError,
+)
+from .document import (
+    DocumentAlreadyExistsError,
+    DocumentNotFoundError,
+)

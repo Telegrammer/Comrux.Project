@@ -1,9 +1,7 @@
-__all__ = ["UserMapper", "ProjectMapper"]
-
 from abc import ABC, abstractmethod
 
 
-from domain import Entity, Project, User
+from domain import Entity, Project, User, Directory, Document, ProjectUnit
 
 
 class DataMapper[TEntity: Entity, Tdto](ABC):
@@ -16,14 +14,17 @@ class DataMapper[TEntity: Entity, Tdto](ABC):
     def to_domain(self, dto: Tdto) -> TEntity:
         raise NotImplementedError
 
-    @abstractmethod
-    def generate_search_params[TSearch, TResult](
-        self, params: TSearch, model: Tdto
-    ) -> TResult:
-        raise NotImplementedError
-
 
 class ProjectMapper[Project, Tdto](DataMapper): ...
 
 
 class UserMapper[User, Tdto](DataMapper): ...
+
+
+class ProjectUnitMapper[TEntity: ProjectUnit, Tdto](DataMapper): ...
+
+
+class DirectoryMapper[Tdto](ProjectUnitMapper[Directory, Tdto]): ...
+
+
+class DocumentMapper[Tdto](ProjectUnitMapper[Document, Tdto]): ...

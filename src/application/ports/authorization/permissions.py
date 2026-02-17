@@ -42,11 +42,28 @@ class CanUpdateProject(Permission[ProjectManagmentContext]):
     def is_satisfied_by(self, context: ProjectManagmentContext) -> bool:
         subject_id: UserId = context.subject.id_
         subject_role: ProjectRole = context.target.members.get(UserId(subject_id), None)
-        if subject_role in {ProjectRole.OWNER, ProjectRole.LEAD}:
-            return AuthorizationResult(True)
-        return AuthorizationResult(
-            False, "Project meta can't be updated by members/guests"
-        )
+        if subject_role not in {ProjectRole.OWNER, ProjectRole.LEAD}:
+            return AuthorizationResult(
+                False, "Project meta can't be updated by members/guests"
+            )
+
+        return AuthorizationResult(True)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProjectContentManagmentContext(PermissionContext):
+    subject: User
+    target: Project
+
+
+class CanManageProjectContent(Permission[ProjectManagmentContext]):
+
+    def is_satisfied_by(self, context):
+        if UserId(context.subject.id_) not in context.target.members.keys():
+            return AuthorizationResult(
+                False, "Only members of the project can manage it"
+            )
+        return AuthorizationResult(True)
 
 
 @dataclass(frozen=True, kw_only=True)
