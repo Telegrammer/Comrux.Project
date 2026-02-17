@@ -28,7 +28,7 @@ def create_create_project_router() -> APIRouter:
     router = ErrorAwareRouter()
 
     @router.post(
-        "/create",
+        "/",
         error_map={
             MappingError: status.HTTP_500_INTERNAL_SERVER_ERROR,
             DomainFieldError: status.HTTP_400_BAD_REQUEST,

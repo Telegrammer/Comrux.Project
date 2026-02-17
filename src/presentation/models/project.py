@@ -11,6 +11,7 @@ class ProjectCreate(BaseModel):
 
 class ProjectCreated(BaseModel):
     project_id: str
+    root_directory_id: str
 
 
 class ProjectRead(ProjectCreate):

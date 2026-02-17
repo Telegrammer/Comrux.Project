@@ -9,3 +9,6 @@ from .remove_project_member import RemoveProjectMemberHandler
 from .list_current_user_objects_project import ListCurrentUserProjectsHandler
 from .grant_owner import GrantOwnerHandler
 from .set_member_role import SetMemberRoleHandler
+from .create_directory import CreateDirectoryHandler
+from .create_document import CreateDocumentHandler
+from .list_directory_content import ListDirectoryContentHandler

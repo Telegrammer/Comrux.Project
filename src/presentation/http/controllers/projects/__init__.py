@@ -8,6 +8,9 @@ from .add_member import create_add_member_router
 from .remove_member import create_remove_member_router
 from .list_members import create_list_members_router
 from .set_role import create_set_role_router
+from .add_directory import create_add_directory_router
+from .add_document import create_add_document_router
+from .list_directory_content import create_list_directory_content_router
 
 projects_router = APIRouter(prefix="/project", tags=["project"])
 projects_router.include_router(create_create_project_router())
@@ -19,3 +22,6 @@ projects_router.include_router(create_add_member_router())
 projects_router.include_router(create_list_members_router())
 projects_router.include_router(create_remove_member_router())
 projects_router.include_router(create_set_role_router())
+projects_router.include_router(create_add_directory_router())
+projects_router.include_router(create_add_document_router())
+projects_router.include_router(create_list_directory_content_router())
