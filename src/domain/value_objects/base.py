@@ -8,7 +8,9 @@ __all__ = [
     "ValueObjectDescriptor",
 ]
 
+
 class ValueObject: ...
+
 
 @dataclass(init=False, repr=False)
 class ValueObject[T](ABC):
@@ -18,11 +20,10 @@ class ValueObject[T](ABC):
     def __post_init__(self):
         if not fields(self):
             raise TypeError(f"{self.__class__.__name__} must be initialized")
-    
+
     @classmethod
     def create(cls, value: T) -> ValueObject:
         return cls(value=value)
-
 
 
 class ValueObjectDescriptor:
@@ -33,7 +34,10 @@ class ValueObjectDescriptor:
         if instance is None:
             return self
 
-        class_object = getattr(instance, self.object_name)
+        class_object = getattr(instance, self.object_name, None)
+        if class_object is None:
+            return None
+
         return class_object.value
 
     def __set__(self, instance: ValueObject, value) -> None:
