@@ -19,12 +19,14 @@ class ProjectRead(ProjectCreate):
     owner_id: str
     members_count: int
     created_at: datetime
+    root_id: str
 
 
 class CurrentUserProjectRead(ProjectCreate):
     id_: str
     role: ProjectRole | None
     created_at: datetime
+    root_id: str
 
 
 class ProjectUpdate(ProjectCreate): ...
