@@ -9,7 +9,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import TypedDict, Sequence
 
-from domain import Project, ProjectId, User
+from domain import Project, ProjectId, User, DirectoryId
 from domain.enums import ProjectRole
 from domain.value_objects import Title, PassedDatetime
 from application.ports.gateways import ProjectListParams, ProjectQueryGateway
@@ -30,6 +30,7 @@ class ListCurrentUserProjectsResponse(TypedDict):
     description: str
     role: ProjectRole
     created_at: PassedDatetime
+    root_id: DirectoryId
 
     @classmethod
     def from_entity(
@@ -41,6 +42,7 @@ class ListCurrentUserProjectsResponse(TypedDict):
             description=entity.description,
             role=role,
             created_at=entity.created_at,
+            root_id=entity.root_directory,
         )
 
 

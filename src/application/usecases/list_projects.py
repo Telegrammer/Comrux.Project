@@ -7,7 +7,7 @@ __all__ = [
 from datetime import datetime
 from typing import TypedDict, Sequence
 
-from domain import Project, ProjectId, UserId
+from domain import Project, ProjectId, UserId, DirectoryId
 from domain.services import ProjectService
 from domain.value_objects import Title, PassedDatetime
 from application.ports.gateways import ProjectListParams, ProjectQueryGateway
@@ -21,10 +21,11 @@ class ListProjectsElementResponse(TypedDict):
     owner_id: UserId
     members_count: int
     created_at: PassedDatetime
+    root_id: DirectoryId
 
     @classmethod
     def from_entity(
-        cls, entity: Project, owner: UserId
+        cls, entity: Project, owner: UserId,
     ) -> "ListProjectsElementResponse":
         return cls(
             id_=entity.id_,
@@ -33,6 +34,7 @@ class ListProjectsElementResponse(TypedDict):
             owner_id=owner,
             members_count=len(entity.members),
             created_at=entity.created_at,
+            root_id=entity.root_directory,
         )
 
 
