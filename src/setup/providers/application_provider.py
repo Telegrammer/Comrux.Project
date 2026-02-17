@@ -24,6 +24,8 @@ from application.compositions import (
     CreateDirectoryComposition,
     CreateDocumentComposition,
     ListDirectoryContentCompostion,
+    ListProjectsComposition,
+    DeleteDocumentComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -40,6 +42,7 @@ from application.usecases import (
     CreateDirectoryUsecase,
     CreateDocumentUsecase,
     ListDirectoryContentUsecase,
+    DeleteDocumentUsecase,
 )
 from application.services import CurrentUserService, ProjectUnitContextService
 from application.ports import Clock
@@ -52,6 +55,7 @@ from application.ports.gateways import (
     DirectoryCommandGateway,
     DirectoryQueryGateway,
     DocumentCommandGateway,
+    DocumentQueryGateway,
     ProjectUnitQueryGateway,
 )
 from infrastructure.adapters import TimestampClock, JsonProjectUnitVisitor
@@ -70,6 +74,7 @@ from infrastructure.adapters.gateways import (
     SqlAlchemyDirectoryCommandGateway,
     SqlAlchemyDirectoryQueryGateway,
     SqlAlchemyDocumentCommandGateway,
+    SqlAlchemyDocumentQueryGateway,
     SQLAlchemyQueryBuilder,
     SqlAclhemyProjectUnitQueryGateway,
 )
@@ -148,6 +153,9 @@ class ApplicationProvider(Provider):
     document_command_gateway = provide(
         source=SqlAlchemyDocumentCommandGateway, provides=DocumentCommandGateway
     )
+    document_query_gateway = provide(
+        source=SqlAlchemyDocumentQueryGateway, provides=DocumentQueryGateway
+    )
 
     create_project_usecase = provide(CreateProjectUsecase)
     create_project_composition = provide(CreateProjectComposition)
@@ -174,3 +182,6 @@ class ApplicationProvider(Provider):
     create_document_composition = provide(CreateDocumentComposition)
     list_dir_content_usecase = provide(ListDirectoryContentUsecase)
     list_dir_content_composition = provide(ListDirectoryContentCompostion)
+    list_projects_composition = provide(ListProjectsComposition)
+    delete_document_usecase = provide(DeleteDocumentUsecase)
+    delete_document_composition = provide(DeleteDocumentComposition)
