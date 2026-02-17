@@ -2,31 +2,19 @@ __all__ = ["SqlAlchemyUserCommandGateway", "SqlAlchemyUserQueryGateway"]
 
 
 from typing import Iterable, Sequence
-from sqlalchemy import select
+from sqlalchemy import select, Select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import InterfaceError
 from domain import User, UserId
 
 from application.exceptions import UserAlreadyExistsError, UserNotFoundError
 from application.ports import UserListParams
-from application.ports.gateways.errors import GatewayFailedError
 from infrastructure.adapters.mappers import SqlAlchemyUserMapper
-from infrastructure.models import User as OrmUser, SqlAlchemySearchParams
-from infrastructure.exceptions.common import create_error_aware_decorator
+from infrastructure.models import User as OrmUser
+from infrastructure.exceptions.error_aware_decorators import network_error_aware
 from infrastructure.exceptions.asyncpg_unique_error_handler import (
     unique_violation_aware,
 )
-
-
-network_error_aware = create_error_aware_decorator(
-    {
-        frozenset(
-            {ConnectionRefusedError, ConnectionResetError, InterfaceError}
-        ): GatewayFailedError
-    }
-)
-
-from application.ports.gateways.errors import GatewayFailedError
+from .query_builder import SQLAlchemyQueryBuilder
 
 
 class SqlAlchemyUserCommandGateway:
@@ -47,9 +35,15 @@ class SqlAlchemyUserCommandGateway:
 
 class SqlAlchemyUserQueryGateway:
 
-    def __init__(self, session: AsyncSession, mapper: SqlAlchemyUserMapper):
+    def __init__(
+        self,
+        session: AsyncSession,
+        mapper: SqlAlchemyUserMapper,
+        query_builder: SQLAlchemyQueryBuilder,
+    ):
         self._session: AsyncSession = session
         self._mapper: SqlAlchemyUserMapper = mapper
+        self._query_builder: SQLAlchemyQueryBuilder = query_builder
 
     @network_error_aware("Cannot find user: can't reach to them")
     async def by_id(self, user_id: UserId) -> User:
@@ -66,18 +60,8 @@ class SqlAlchemyUserQueryGateway:
         self, ids: Iterable[UserId], search_params: UserListParams
     ) -> Sequence[User]:
 
-        search: SqlAlchemySearchParams = self._mapper.generate_search_params(
-            search_params, OrmUser
-        )
-        stmt = (
-            select(OrmUser)
-            .where(OrmUser.id_.in_(ids))
-            .order_by(*search.orders)
-            .slice(
-                search_params.pagination.offset,
-                search_params.pagination.offset + search_params.pagination.limit,
-            )
-        )
+        stmt: Select = select(OrmUser).where(OrmUser.id_.in_(ids))
+        stmt = self._query_builder.apply(stmt, search_params, OrmUser)
 
         response = await self._session.scalars(stmt)
         users: Sequence[User] = response.all()

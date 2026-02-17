@@ -7,8 +7,6 @@ from functools import singledispatchmethod
 
 from sqlalchemy import select, Select, delete as sql_delete, Delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import InterfaceError
-from sqlalchemy.orm.exc import StaleDataError
 
 
 from domain import Project, ProjectId, UserId
@@ -16,29 +14,17 @@ from domain.enums import ProjectRole
 from application.exceptions import (
     ProjectAlreadyExistsError,
     ProjectNotFoundError,
-    InconsistentDataError,
 )
-from application.ports.gateways.errors import GatewayFailedError
 from application.ports.gateways.query_params import ProjectListParams
 from infrastructure.models import Project as OrmProject
 from infrastructure.exceptions import (
-    create_error_aware_decorator,
     unique_violation_aware,
+    network_error_aware,
+    stale_data_error_aware,
 )
 from infrastructure.adapters.mappers import SqlAlchemyProjectMapper
-from infrastructure.models.search_params import SqlAlchemySearchParams
 from infrastructure.models import ProjectMembership
-
-network_error_aware = create_error_aware_decorator(
-    {
-        frozenset(
-            {ConnectionRefusedError, ConnectionResetError, InterfaceError}
-        ): GatewayFailedError
-    }
-)
-stale_data_error_aware = create_error_aware_decorator(
-    {frozenset({StaleDataError}): InconsistentDataError}
-)
+from .query_builder import SQLAlchemyQueryBuilder
 
 
 class SqlAlchemyProjectCommandGateway:
@@ -83,25 +69,20 @@ class SqlAlchemyProjectCommandGateway:
 
 class SqlAlchemyProjectQueryGateway:
 
-    def __init__(self, session: AsyncSession, mapper: SqlAlchemyProjectMapper):
+    def __init__(
+        self,
+        session: AsyncSession,
+        mapper: SqlAlchemyProjectMapper,
+        query_builder: SQLAlchemyQueryBuilder,
+    ):
         self._session: AsyncSession = session
         self._mapper: SqlAlchemyProjectMapper = mapper
+        self._query_builder: SQLAlchemyQueryBuilder = query_builder
 
     @network_error_aware("Cannot get projects: projects are unreachable via network")
     async def read_all(self, params: ProjectListParams) -> Sequence[Project]:
 
-        search: SqlAlchemySearchParams = self._mapper.generate_search_params(
-            params, OrmProject
-        )
-
-        stmt: Select = (
-            select(OrmProject)
-            .order_by(*search.orders)
-            .slice(
-                params.pagination.offset,
-                params.pagination.offset + params.pagination.limit,
-            )
-        )
+        stmt: Select = self._query_builder.apply(select(OrmProject), params, OrmProject)
 
         response = await self._session.scalars(stmt)
         projects: Sequence[OrmProject] = response.all()
@@ -124,7 +105,6 @@ class SqlAlchemyProjectQueryGateway:
         self, user_id: UserId, role: ProjectRole, params: ProjectListParams
     ) -> Sequence[tuple[Project, ProjectRole]]:
 
-        search = self._mapper.generate_search_params(params, OrmProject)
         stmt = (
             select(
                 OrmProject,
@@ -134,9 +114,7 @@ class SqlAlchemyProjectQueryGateway:
             .where(ProjectMembership.user_id == user_id)
             .where(or_(role is None, ProjectMembership.role == role))
         )
-        stmt = stmt.order_by(*search.orders).slice(
-            params.pagination.offset, params.pagination.offset + params.pagination.limit
-        )
+        stmt = self._query_builder.apply(stmt, params, OrmProject)
         response: Sequence[tuple[OrmProject, ProjectRole]] = (
             await self._session.execute(stmt)
         ).all()
