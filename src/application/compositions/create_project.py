@@ -26,5 +26,5 @@ class CreateProjectComposition:
         async with self._unit_of_work:
             logger.info("Project creation started")
             response: CreateProjectResponse = await self._usecase(request)
-            logger.info("Project %s was created", response["project_id"])
-            return response
+        logger.info("Project %s was created", response["project_id"])
+        return response

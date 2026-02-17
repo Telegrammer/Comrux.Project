@@ -26,5 +26,5 @@ class CreateUserComposition:
         async with self._unit_of_work:
             logger.info("User creation started")
             response: CreateUserResponse = await self._usecase(request)
-            logger.info("User %s was created", response["user_id"])
-            return response
+        logger.info("User %s was created", response["user_id"])
+        return response
