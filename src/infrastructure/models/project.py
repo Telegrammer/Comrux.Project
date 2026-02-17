@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from .project_membership import ProjectMembership
+from .project_unit_node import ProjectUnitNode
 from .base import Base
 
 
@@ -19,6 +20,12 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
         lazy="selectin",
+    )
+    units: Mapped[list[ProjectUnitNode]] = relationship(
+        back_populates="project",
+        cascade="all, delete",
+        passive_deletes=True,
+        lazy="raise",
     )
 
     version: Mapped[int] = mapped_column(nullable=False)
