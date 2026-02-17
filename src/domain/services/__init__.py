@@ -1,2 +1,4 @@
 from .project import ProjectService
 from .user import UserService
+from .directory import DirectoryService
+from .document import DocumentService

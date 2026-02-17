@@ -12,7 +12,7 @@ from ..enums import ProjectRole
 class ProjectId(Uuid4): ...
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Project(AggregationRoot[ProjectId]):
 
     title: Title
