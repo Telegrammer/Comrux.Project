@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from domain.value_objects import Title, PassedDatetime
-from domain.entities import Project, ProjectId, UserId
+from domain.entities import Project, ProjectId, UserId, DirectoryId
 from domain.ports import ProjectIdGenerator
 from domain.enums import ProjectRole
 from domain.exceptions import ProjectMustHaveOwnerError, MemberNotFoundError
@@ -13,11 +13,17 @@ class ProjectService:
         self._id_generator = id_generator
 
     def create_project(
-        self, title: Title, description: str, now: datetime, owner: UserId
+        self,
+        title: Title,
+        description: str,
+        now: datetime,
+        owner: UserId,
+        root: DirectoryId,
     ) -> Project:
         return Project(
             id_=self._id_generator(),
             title=title,
+            root_directory=root,
             description=description,
             created_at=PassedDatetime(now, now),
             members={UserId(owner): ProjectRole.OWNER},
@@ -29,6 +35,7 @@ class ProjectService:
         return Project(
             id_=ProjectId(project.id_),
             title=title,
+            root_directory=DirectoryId(project.root_directory),
             description=description,
             created_at=PassedDatetime(project.created_at, now),
             members=project.members,
@@ -41,6 +48,7 @@ class ProjectService:
         return Project(
             id_=ProjectId(project.id_),
             title=Title(project.title),
+            root_directory=DirectoryId(project.root_directory),
             description=project.description,
             created_at=PassedDatetime(project.created_at, now),
             members=project.members,
@@ -59,6 +67,7 @@ class ProjectService:
         return Project(
             id_=ProjectId(project.id_),
             title=Title(project.title),
+            root_directory=DirectoryId(project.root_directory),
             description=project.description,
             created_at=PassedDatetime(project.created_at, now),
             members=project.members,
@@ -85,6 +94,7 @@ class ProjectService:
         return Project(
             id_=ProjectId(project.id_),
             title=Title(project.title),
+            root_directory=DirectoryId(project.root_directory),
             description=project.description,
             created_at=PassedDatetime(project.created_at, now),
             members=new_members,
@@ -100,6 +110,7 @@ class ProjectService:
         return Project(
             id_=ProjectId(project.id_),
             title=Title(project.title),
+            root_directory=DirectoryId(project.root_directory),
             description=project.description,
             created_at=PassedDatetime(project.created_at, now),
             members=new_members,
