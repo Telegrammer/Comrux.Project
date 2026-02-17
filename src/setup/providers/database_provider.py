@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import MetaData
 from dishka import Provider, provide, Scope, from_context
 
-
+from domain import Entity
 from application.ports import UnitOfWork
 from infrastructure.adapters import SqlAlchemyTransaction
 from setup.db_helper import DatabaseHelper

@@ -21,6 +21,9 @@ from application.compositions import (
     ListCurrentUserProjectsComposition,
     GrantOwnerComposition,
     SetMemberRoleComposition,
+    CreateDirectoryComposition,
+    CreateDocumentComposition,
+    ListDirectoryContentCompostion,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -34,28 +37,41 @@ from application.usecases import (
     ListCurrentUserProjectsUsecase,
     GrantOwnerUsecase,
     SetMemberRoleUsecase,
+    CreateDirectoryUsecase,
+    CreateDocumentUsecase,
+    ListDirectoryContentUsecase,
 )
-from application.services import (
-    CurrentUserService,
-)
+from application.services import CurrentUserService, ProjectUnitContextService
 from application.ports import Clock
-from application.ports.mappers import ProjectMapper, UserMapper
+from application.ports.mappers import ProjectMapper, UserMapper, DirectoryMapper
 from application.ports.gateways import (
     ProjectCommandGateway,
     ProjectQueryGateway,
     UserCommandGateway,
     UserQueryGateway,
+    DirectoryCommandGateway,
+    DirectoryQueryGateway,
+    DocumentCommandGateway,
+    ProjectUnitQueryGateway,
 )
-from infrastructure.adapters import TimestampClock
+from infrastructure.adapters import TimestampClock, JsonProjectUnitVisitor
 from infrastructure.adapters.mappers import (
     SqlAlchemyProjectMapper,
     SqlAlchemyUserMapper,
+    SqlAlchemyDirectoryMapper,
+    SqlAlchemyDocumentMapper,
+    ProjectUnitNodeMapper,
 )
 from infrastructure.adapters.gateways import (
     SqlAlchemyProjectCommandGateway,
     SqlAlchemyProjectQueryGateway,
     SqlAlchemyUserCommandGateway,
     SqlAlchemyUserQueryGateway,
+    SqlAlchemyDirectoryCommandGateway,
+    SqlAlchemyDirectoryQueryGateway,
+    SqlAlchemyDocumentCommandGateway,
+    SQLAlchemyQueryBuilder,
+    SqlAclhemyProjectUnitQueryGateway,
 )
 
 
@@ -65,6 +81,10 @@ class ApplicationProvider(Provider):
     user_id = from_context(UserId)
 
     clock = provide(source=TimestampClock, provides=Clock)
+
+    @provide
+    def provide_query_builder(self) -> SQLAlchemyQueryBuilder:
+        return SQLAlchemyQueryBuilder()
 
     user_mapper = provide(SqlAlchemyUserMapper)
     user_command_gateway = provide(
@@ -82,6 +102,15 @@ class ApplicationProvider(Provider):
     ) -> CurrentUserService:
         return CurrentUserService(user_id=user_id, gateway=user_gateway)
 
+    @provide
+    def project_unit_context_service(
+        self,
+        current_user: CurrentUserService,
+        projects: ProjectQueryGateway,
+        directories: DirectoryQueryGateway,
+    ) -> ProjectUnitContextService:
+        return ProjectUnitContextService(current_user, directories, projects)
+
     project_mapper = provide(SqlAlchemyProjectMapper)
 
     project_command_gateway = provide(
@@ -91,6 +120,33 @@ class ApplicationProvider(Provider):
     project_query_gateway = provide(
         source=SqlAlchemyProjectQueryGateway,
         provides=ProjectQueryGateway,
+    )
+
+    project_unit_gateway = provide(
+        source=SqlAclhemyProjectUnitQueryGateway, provides=ProjectUnitQueryGateway
+    )
+    project_unit_mapper = provide(ProjectUnitNodeMapper)
+
+    @provide
+    def provide_dir_mapper(self, clock: Clock) -> SqlAlchemyDirectoryMapper:
+        return SqlAlchemyDirectoryMapper(
+            clock=clock, unit_visitor=JsonProjectUnitVisitor()
+        )
+
+    @provide
+    def provide_doc_mapper(self, clock: Clock) -> SqlAlchemyDocumentMapper:
+        return SqlAlchemyDocumentMapper(
+            clock=clock, unit_visitor=JsonProjectUnitVisitor()
+        )
+
+    directory_command_gateway = provide(
+        source=SqlAlchemyDirectoryCommandGateway, provides=DirectoryCommandGateway
+    )
+    directory_query_gateway = provide(
+        source=SqlAlchemyDirectoryQueryGateway, provides=DirectoryQueryGateway
+    )
+    document_command_gateway = provide(
+        source=SqlAlchemyDocumentCommandGateway, provides=DocumentCommandGateway
     )
 
     create_project_usecase = provide(CreateProjectUsecase)
@@ -112,3 +168,9 @@ class ApplicationProvider(Provider):
     grant_owner_comosition = provide(GrantOwnerComposition)
     set_role_usecase = provide(SetMemberRoleUsecase)
     set_role_composition = provide(SetMemberRoleComposition)
+    create_directory_usecase = provide(CreateDirectoryUsecase)
+    create_directory_composition = provide(CreateDirectoryComposition)
+    create_document_usecase = provide(CreateDocumentUsecase)
+    create_document_composition = provide(CreateDocumentComposition)
+    list_dir_content_usecase = provide(ListDirectoryContentUsecase)
+    list_dir_content_composition = provide(ListDirectoryContentCompostion)

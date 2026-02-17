@@ -6,11 +6,13 @@ from typing import Type
 from dishka import Provider, provide, Scope, from_context, AsyncContainer
 from setup.config import Settings
 
+from application.compositions import ListDirectoryContentCompostion
 
 from presentation.presenters import (
     OrdersPresenter,
     AuthInfoPresenter,
     JwtAuthInfoPresenter,
+    PydanticProjectUnitVisitor,
 )
 from presentation.models import AuthInfo
 from presentation.handlers import (
@@ -25,6 +27,9 @@ from presentation.handlers import (
     ListCurrentUserProjectsHandler,
     GrantOwnerHandler,
     SetMemberRoleHandler,
+    CreateDirectoryHandler,
+    CreateDocumentHandler,
+    ListDirectoryContentHandler,
 )
 from presentation.http.middleware.extratctors.auth_info.bearer import (
     BearerAuthInfoExtractor,
@@ -66,3 +71,13 @@ class PresentationProvider(Provider):
     list_current_user_projects_handler = provide(ListCurrentUserProjectsHandler)
     grant_owner_handler = provide(GrantOwnerHandler)
     set_role_handler = provide(SetMemberRoleHandler)
+    create_directory_handler = provide(CreateDirectoryHandler)
+    create_document_handler = provide(CreateDocumentHandler)
+
+    @provide
+    def provide_list_dir_content(
+        self, usecase: ListDirectoryContentCompostion, presenter: OrdersPresenter
+    ) -> ListDirectoryContentHandler:
+        return ListDirectoryContentHandler(
+            usecase, PydanticProjectUnitVisitor(), presenter
+        )
