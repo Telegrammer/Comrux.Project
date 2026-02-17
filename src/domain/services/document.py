@@ -25,6 +25,9 @@ class DocumentService:
         now: datetime,
     ) -> Document:
 
+        if name.value == "":
+            raise DomainFieldError("Document name must not be empty")
+
         if parent.project.value != project.id_:
             raise DomainFieldError("Parent directory must be in the same project")
 

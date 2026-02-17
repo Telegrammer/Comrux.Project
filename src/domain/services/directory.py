@@ -21,6 +21,9 @@ class DirectoryService:
         now: datetime,
     ) -> Directory:
 
+        if name.value == "":
+            raise DomainFieldError("Directory name must not be empty")
+
         if parent.project.value != project.id_:
             raise DomainFieldError("Parent directory must be in the same project")
 
