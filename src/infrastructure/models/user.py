@@ -17,4 +17,5 @@ class User(Base):
     memberships: Mapped[list[ProjectMembership]] = relationship(
         back_populates="user",
         viewonly=True,
+        lazy="raise",
     )

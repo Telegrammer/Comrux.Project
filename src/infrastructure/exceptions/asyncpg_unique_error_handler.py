@@ -45,7 +45,7 @@ def unique_violation_aware(model_error: ApplicationError):
                     model_error,
                     error_detail,
                 )
-                if error_detail.startswith("DETAIL:  Key ("):
+                if error_detail.startswith("DETAIL:  Key (id_"):
                     raise EntityAlreadyExistsError(
                         "Somehow object was created with the same id. Please try again"
                     )
