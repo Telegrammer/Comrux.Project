@@ -1,5 +1,5 @@
 from .base import Base
-from .project import Project
+from .project import Project, ProjectDto
 from .user import User
 from .project_unit_node import ProjectUnitNode
 from .project_membership import ProjectMembership

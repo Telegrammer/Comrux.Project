@@ -42,8 +42,7 @@ class ProjectUnitNode(Base):
     __table_args__ = (
         UniqueConstraint(name, parent_id, project_id),
         Index(
-            "ix_node_root_unique_name",
-            "name",
+            "ix_project_single_root",
             "project_id",
             unique=True,
             postgresql_where=(parent_id.is_(None)),

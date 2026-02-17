@@ -1,6 +1,4 @@
-__all__ = ["Project"]
-
-
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 from sqlalchemy.orm import mapped_column, Mapped, relationship
@@ -31,3 +29,9 @@ class Project(Base):
     version: Mapped[int] = mapped_column(nullable=False)
 
     __mapper_args__ = {"version_id_col": version}
+
+
+@dataclass
+class ProjectDto:
+    orm_model: Project
+    root_directory: UUID | None
