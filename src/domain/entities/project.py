@@ -12,10 +12,14 @@ from ..enums import ProjectRole
 class ProjectId(Uuid4): ...
 
 
-@dataclass(kw_only=True)
+class DirectoryId(Uuid4): ...
+
+
+@dataclass
 class Project(AggregationRoot[ProjectId]):
 
     title: Title
+    root_directory: DirectoryId
     description: str = ""
     members: dict[UserId, ProjectRole] = field(default_factory=dict)
     created_at: PassedDatetime
