@@ -2,14 +2,11 @@ __all__ = ["ListProjectsHandler"]
 
 
 from application.ports.gateways.query_params import (
-    SortingParam,
     OffsetPagination,
     ProjectListParams,
 )
-from application.usecases import (
-    ListProjectsUsecase,
-    ListProjectsElementResponse,
-)
+from application.usecases import ListProjectsElementResponse
+from application.compositions import ListProjectsComposition
 
 from presentation.models import ProjectRead
 from presentation.presenters import OrdersPresenter
@@ -17,8 +14,10 @@ from presentation.presenters import OrdersPresenter
 
 class ListProjectsHandler:
 
-    def __init__(self, usecase: ListProjectsUsecase, orders_presenter: OrdersPresenter):
-        self._usecase: ListProjectsUsecase = usecase
+    def __init__(
+        self, usecase: ListProjectsComposition, orders_presenter: OrdersPresenter
+    ):
+        self._usecase: ListProjectsComposition = usecase
         self._orders_presenter: OrdersPresenter = orders_presenter
 
     async def __call__(
@@ -38,7 +37,7 @@ class ListProjectsHandler:
                 owner_id=elem["owner_id"],
                 members_count=elem["members_count"],
                 created_at=elem["created_at"],
-                
+                root_id=elem["root_id"],
             )
             for elem in response
         ]
