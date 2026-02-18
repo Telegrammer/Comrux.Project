@@ -7,6 +7,7 @@ from domain.entities import Document, DocumentId, DirectoryId, UserId, ProjectId
 from domain.entities.document import ContentId
 from application.ports.mappers import DocumentMapper, MappingError
 from application.ports import Clock
+from application.exceptions import DocumentNotFoundError
 from infrastructure.models import ProjectUnitNode, DocumentAttributes
 
 
@@ -18,8 +19,9 @@ class SqlAlchemyDocumentMapper(DocumentMapper[ProjectUnitNode]):
 
     def to_domain(self, dto: ProjectUnitNode) -> Document:
         now: datetime = self._clock.now()
+
         if dto.unit_type != ProjectUnitType.DOCUMENT:
-            raise MappingError("Given project unit is not a directory")
+            raise DocumentNotFoundError("Given project unit is not a directory")
 
         return Document(
             id_=DocumentId(dto.id_.__str__()),

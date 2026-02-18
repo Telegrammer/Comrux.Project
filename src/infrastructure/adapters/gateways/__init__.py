@@ -12,6 +12,7 @@ from .directory import (
 )
 from .document import (
     SqlAlchemyDocumentCommandGateway,
+    SqlAlchemyDocumentQueryGateway,
 )
 from .query_builder import SQLAlchemyQueryBuilder
 from .project_unit import SqlAclhemyProjectUnitQueryGateway

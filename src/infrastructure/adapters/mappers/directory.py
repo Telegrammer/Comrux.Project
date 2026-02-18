@@ -4,7 +4,8 @@ from domain.enums import ProjectUnitType
 from domain.value_objects import FileName, PassedDatetime
 from domain.ports import ProjectUnitVisitor
 from domain.entities import Directory, DirectoryId, UserId, ProjectId
-from application.ports.mappers import DirectoryMapper, MappingError
+from application.exceptions import DirectoryNotFoundError
+from application.ports.mappers import DirectoryMapper
 from application.ports import Clock
 from infrastructure.models import (
     ProjectUnitNode,
@@ -21,7 +22,7 @@ class SqlAlchemyDirectoryMapper(DirectoryMapper[ProjectUnitNode]):
     def to_domain(self, dto: ProjectUnitNode) -> Directory:
         now: datetime = self._clock.now()
         if dto.unit_type != ProjectUnitType.DIRECTORY:
-            raise MappingError("Given project unit is not a directory")
+            raise DirectoryNotFoundError("Given project unit is not a directory")
 
         return Directory(
             id_=DirectoryId(dto.id_.__str__()),
