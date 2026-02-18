@@ -11,6 +11,7 @@ from .gateways import (
     DocumentCommandGateway,
     DirectoryCommandGateway,
     ProjectUnitQueryGateway,
+    DocumentQueryGateway,
 )
 from .clock import Clock
 from .unit_of_work import UnitOfWork
