@@ -57,7 +57,8 @@ class CreateProjectUsecase:
 
         now: datetime = self._clock.now()
         current_user: User = await self._current_user()
-        new_project: Project = self._project_service.create_project(
+
+        new_project = self._project_service.create_project(
             title=request.title,
             description=request.description,
             owner=current_user.id_,
@@ -66,6 +67,7 @@ class CreateProjectUsecase:
         root_directory: Directory = self._directory_service.create_root_directory(
             new_project, UserId(current_user.id_), now
         )
+        new_project.root_directory = DirectoryId(root_directory.id_)
 
         await self._project_gateway.add(new_project)
         await self._directory_gateway.add(root_directory)
