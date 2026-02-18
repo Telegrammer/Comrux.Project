@@ -9,7 +9,7 @@ from dishka.integrations.fastapi import FromDishka, inject
 
 from domain.exceptions import DomainFieldError
 from domain.enums import ProjectRole
-from application.exceptions import UserNotFoundError
+from application.exceptions import UserNotFoundError, ExpiredAccessKeyError
 from application.ports.mappers.errors import MappingError
 from application.ports.gateways.errors import GatewayFailedError
 
@@ -32,6 +32,7 @@ def create_list_projects_router() -> APIRouter:
             MappingError: status.HTTP_500_INTERNAL_SERVER_ERROR,
             UserNotFoundError: status.HTTP_401_UNAUTHORIZED,
             DomainFieldError: status.HTTP_400_BAD_REQUEST,
+            ExpiredAccessKeyError: status.HTTP_401_UNAUTHORIZED,
             GatewayFailedError: service_unavailable_rule,
             IncorrectQueryParameterError: status.HTTP_400_BAD_REQUEST,
         },

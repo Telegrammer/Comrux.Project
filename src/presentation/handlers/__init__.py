@@ -12,3 +12,5 @@ from .set_member_role import SetMemberRoleHandler
 from .create_directory import CreateDirectoryHandler
 from .create_document import CreateDocumentHandler
 from .list_directory_content import ListDirectoryContentHandler
+from .delete_document import DeleteDocumentHandler
+from .delete_directory import DeleteDirectoryHandler
