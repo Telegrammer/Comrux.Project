@@ -64,3 +64,11 @@ from .list_directory_content import (
     ListDirectoryContentRequest,
     ListDirectoryContentUsecase,
 )
+from .delete_document import (
+    DeleteDocumentRequest,
+    DeleteDocumentUsecase,
+)
+from .delete_directory import (
+    DeleteDirectoryRequest,
+    DeleteDirectoryUsecase,
+)
