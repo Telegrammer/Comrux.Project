@@ -18,12 +18,11 @@ class ProjectService:
         description: str,
         now: datetime,
         owner: UserId,
-        root: DirectoryId,
     ) -> Project:
         return Project(
             id_=self._id_generator(),
             title=title,
-            root_directory=root,
+            root_directory=None,
             description=description,
             created_at=PassedDatetime(now, now),
             members={UserId(owner): ProjectRole.OWNER},

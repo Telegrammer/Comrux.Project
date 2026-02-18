@@ -19,7 +19,7 @@ class DirectoryId(Uuid4): ...
 class Project(AggregationRoot[ProjectId]):
 
     title: Title
-    root_directory: DirectoryId
+    root_directory: DirectoryId | None
     description: str = ""
     members: dict[UserId, ProjectRole] = field(default_factory=dict)
     created_at: PassedDatetime
