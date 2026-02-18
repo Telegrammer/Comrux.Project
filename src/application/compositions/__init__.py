@@ -13,3 +13,4 @@ from .create_document import CreateDocumentComposition
 from .list_directory_content import ListDirectoryContentCompostion
 from .list_projects import ListProjectsComposition
 from .delete_document import DeleteDocumentComposition
+from .delete_directory import DeleteDirectoryComposition
