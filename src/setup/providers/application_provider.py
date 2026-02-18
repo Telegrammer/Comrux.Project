@@ -26,6 +26,7 @@ from application.compositions import (
     ListDirectoryContentCompostion,
     ListProjectsComposition,
     DeleteDocumentComposition,
+    DeleteDirectoryComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -43,6 +44,7 @@ from application.usecases import (
     CreateDocumentUsecase,
     ListDirectoryContentUsecase,
     DeleteDocumentUsecase,
+    DeleteDirectoryUsecase,
 )
 from application.services import CurrentUserService, ProjectUnitContextService
 from application.ports import Clock
@@ -185,3 +187,5 @@ class ApplicationProvider(Provider):
     list_projects_composition = provide(ListProjectsComposition)
     delete_document_usecase = provide(DeleteDocumentUsecase)
     delete_document_composition = provide(DeleteDocumentComposition)
+    delete_directory_usecase = provide(DeleteDirectoryUsecase)
+    delete_directory_composition = provide(DeleteDirectoryComposition)

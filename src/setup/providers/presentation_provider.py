@@ -30,6 +30,8 @@ from presentation.handlers import (
     CreateDirectoryHandler,
     CreateDocumentHandler,
     ListDirectoryContentHandler,
+    DeleteDocumentHandler,
+    DeleteDirectoryHandler,
 )
 from presentation.http.middleware.extratctors.auth_info.bearer import (
     BearerAuthInfoExtractor,
@@ -73,6 +75,8 @@ class PresentationProvider(Provider):
     set_role_handler = provide(SetMemberRoleHandler)
     create_directory_handler = provide(CreateDirectoryHandler)
     create_document_handler = provide(CreateDocumentHandler)
+    delete_document_handler = provide(DeleteDocumentHandler)
+    delete_directory_handler = provide(DeleteDirectoryHandler)
 
     @provide
     def provide_list_dir_content(
