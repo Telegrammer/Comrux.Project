@@ -25,4 +25,5 @@ from .directory import (
 from .document import (
     DocumentAlreadyExistsError,
     DocumentNotFoundError,
+    DocumentNotInProjectError,
 )
