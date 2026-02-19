@@ -3,7 +3,9 @@ from .orders import (
 )
 from .auth_info import (
     AuthInfoPresenter,
-    JwtAuthInfoPresenter
+    JwtAuthInfoPresenter,
+    ContentTicketPresenter,
+    JwtContentTicketPresenter,
 )
 from .project_unit import (
     PydanticProjectUnitVisitor,

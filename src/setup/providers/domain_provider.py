@@ -8,7 +8,8 @@ from setup.config import Settings
 
 
 from domain import ProjectService, UserService, DirectoryService, DocumentService
-from domain.policies import BirthDatePolicy
+from domain.services import ContentTicketService
+from domain.policies import BirthDatePolicy, ContentTicketValidityPolicy
 from domain.ports import (
     ProjectIdGenerator,
     UserIdGenerator,
@@ -49,6 +50,11 @@ class DomainProvider(Provider):
     def provide_birthdate_policy(self) -> BirthDatePolicy:
         return BirthDatePolicy(date(1900, 1, 1), relativedelta(years=12))
 
+    @provide
+    def provide_content_policy(self) -> ContentTicketValidityPolicy:
+        return ContentTicketValidityPolicy(ttl=timedelta(seconds=60))
+
     user_service = provide(UserService)
     directory_service = provide(DirectoryService)
     document_service = provide(DocumentService)
+    ticket_service = provide(ContentTicketService)

@@ -22,7 +22,10 @@ from application.ports.authorization import (
     CanManageProjectContent,
     ProjectContentManagmentContext,
 )
-from application.services import ProjectUnitContext, ProjectUnitContextService
+from application.services import (
+    ProjectUnitCreationContext,
+    ProjectUnitCreationContextService,
+)
 
 
 @dataclass
@@ -54,19 +57,19 @@ class CreateDocumentUsecase:
     def __init__(
         self,
         clock: Clock,
-        context_service: ProjectUnitContextService,
+        context_service: ProjectUnitCreationContextService,
         document_service: DocumentService,
         document_commands: DocumentCommandGateway,
     ):
         self._clock = clock
-        self._context_service: ProjectUnitContextService = context_service
+        self._context_service: ProjectUnitCreationContextService = context_service
         self._document_service: DocumentService = document_service
         self._document_commands: DocumentCommandGateway = document_commands
 
     async def __call__(self, request: CreateDocumentRequest) -> CreateDocumentResponse:
         now: datetime = self._clock.now()
 
-        context: ProjectUnitContext = await self._context_service(
+        context: ProjectUnitCreationContext = await self._context_service(
             request.project_id, request.parent_id
         )
 

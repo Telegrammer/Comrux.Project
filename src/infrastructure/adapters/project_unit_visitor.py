@@ -15,7 +15,6 @@ class JsonProjectUnitVisitor(ProjectUnitVisitor):
         return DirectoryAttributes()
 
     def visit_document(self, document: Document) -> DocumentAttributes:
-        print(document)
         return DocumentAttributes(content_ref=document.content_ref)
 
     def visit_sequence(self, units: Sequence[ProjectUnit]):

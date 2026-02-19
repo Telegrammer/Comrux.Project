@@ -36,7 +36,7 @@ def create_delete_document_router() -> APIRouter:
             ExpiredAccessKeyError: status.HTTP_401_UNAUTHORIZED,
             CurrentUserNotFoundError: status.HTTP_401_UNAUTHORIZED,
             AccessDeniedError: status.HTTP_403_FORBIDDEN,
-            DocumentNotInProjectError: status.HTTP_403_FORBIDDEN,
+            DocumentNotInProjectError: status.HTTP_400_BAD_REQUEST,
             GatewayFailedError: service_unavailable_rule,
         },
         default_on_error=log_info,

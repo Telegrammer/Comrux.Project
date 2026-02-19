@@ -12,6 +12,8 @@ from presentation.presenters import (
     OrdersPresenter,
     AuthInfoPresenter,
     JwtAuthInfoPresenter,
+    ContentTicketPresenter,
+    JwtContentTicketPresenter,
     PydanticProjectUnitVisitor,
 )
 from presentation.models import AuthInfo
@@ -32,6 +34,7 @@ from presentation.handlers import (
     ListDirectoryContentHandler,
     DeleteDocumentHandler,
     DeleteDirectoryHandler,
+    CreateContentTicketHandler,
 )
 from presentation.http.middleware.extratctors.auth_info.bearer import (
     BearerAuthInfoExtractor,
@@ -50,6 +53,21 @@ class PresentationProvider(Provider):
             public_key=settings.auth.public_key.read_text(),
             algorithm=settings.auth.algorithm,
         )
+
+    @provide(scope=Scope.APP)
+    def provide_jwt_ticket_presentation(
+        self, settings: Settings
+    ) -> JwtContentTicketPresenter:
+        return JwtContentTicketPresenter(
+            private_key=settings.auth.private_key.read_text(),
+            algorithm=settings.auth.algorithm,
+        )
+
+    @provide(scope=Scope.APP)
+    def provide_ticket_presentation(
+        self, presenter: JwtContentTicketPresenter
+    ) -> ContentTicketPresenter:
+        return presenter
 
     @provide(scope=Scope.APP)
     def provide_auth_info_presentation(
@@ -77,6 +95,7 @@ class PresentationProvider(Provider):
     create_document_handler = provide(CreateDocumentHandler)
     delete_document_handler = provide(DeleteDocumentHandler)
     delete_directory_handler = provide(DeleteDirectoryHandler)
+    create_ticket_handler = provide(CreateContentTicketHandler)
 
     @provide
     def provide_list_dir_content(

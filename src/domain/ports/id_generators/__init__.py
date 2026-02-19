@@ -2,3 +2,4 @@ from .project_id_generator import ProjectIdGenerator
 from .user_id_generator import UserIdGenerator
 from .content_id_generator import ContentIdGenerator
 from .project_unit_id_generator import ProjectUnitIdGenerator
+from .ticket_id_generator import ContentTicketIdGenerator

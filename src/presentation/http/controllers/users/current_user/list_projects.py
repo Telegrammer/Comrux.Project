@@ -9,7 +9,8 @@ from dishka.integrations.fastapi import FromDishka, inject
 
 from domain.exceptions import DomainFieldError
 from domain.enums import ProjectRole
-from application.exceptions import UserNotFoundError, ExpiredAccessKeyError
+from application.exceptions import UserNotFoundError
+from application.exceptions.authorization import ExpiredAccessKeyError
 from application.ports.mappers.errors import MappingError
 from application.ports.gateways.errors import GatewayFailedError
 

@@ -7,7 +7,7 @@ from application.ports import (
     ProjectQueryGateway,
     DocumentQueryGateway,
 )
-from application.services import CurrentUserService
+from application.services import DocumentManageContext, DocumentManageContextService
 from application.exceptions import DocumentNotFoundError, DocumentNotInProjectError
 from application.ports.authorization import (
     authorize,
@@ -37,39 +37,27 @@ class DeleteDocumentUsecase:
 
     def __init__(
         self,
-        current_user: CurrentUserService,
-        project_gateway: ProjectQueryGateway,
-        document_queries: DocumentQueryGateway,
+        context_service: DocumentManageContextService,
         document_commands: DocumentCommandGateway,
     ):
-        self._current_user: CurrentUserService = current_user
-        self._project_gateway: ProjectQueryGateway = project_gateway
-        self._document_queries: DocumentQueryGateway = document_queries
+        self._context_service: DocumentManageContextService = context_service
         self._document_commands: DocumentCommandGateway = document_commands
 
     async def __call__(self, request: DeleteDocumentRequest) -> str:
 
-        current_user: User = await self._current_user()
-        found_project: Project = await self._project_gateway.by_id(
-            request.project_id.value
-        )
-
-        authorize(
-            CanManageProjectContent(),
-            context=ProjectContentManagmentContext(
-                subject=current_user, target=found_project
-            ),
-        )
-
         try:
-            found_document: Document = await self._document_queries.by_id(
-                request.document_id.value
+            context: DocumentManageContext = await self._context_service(
+                request.project_id.value, request.document_id.value
             )
         except DocumentNotFoundError:
             return "Document is already deleted or never been in system"
 
-        if found_document.project.value != found_project.id_:
-            raise DocumentNotInProjectError("Given document is not in given project")
-
-        await self._document_commands.delete(found_document.id_)
+        authorize(
+            CanManageProjectContent(),
+            context=ProjectContentManagmentContext(
+                subject=context.current_user, target=context.pinned_project
+            ),
+        )
+        
+        await self._document_commands.delete(context.found_document.id_)
         return "Document deleted"

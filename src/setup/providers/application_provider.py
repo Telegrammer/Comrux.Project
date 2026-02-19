@@ -27,6 +27,7 @@ from application.compositions import (
     ListProjectsComposition,
     DeleteDocumentComposition,
     DeleteDirectoryComposition,
+    CreateContentTicketComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -45,8 +46,13 @@ from application.usecases import (
     ListDirectoryContentUsecase,
     DeleteDocumentUsecase,
     DeleteDirectoryUsecase,
+    CreateContentTicketUsecase,
 )
-from application.services import CurrentUserService, ProjectUnitContextService
+from application.services import (
+    CurrentUserService,
+    ProjectUnitCreationContextService,
+    DocumentManageContextService,
+)
 from application.ports import Clock
 from application.ports.mappers import ProjectMapper, UserMapper, DirectoryMapper
 from application.ports.gateways import (
@@ -109,14 +115,8 @@ class ApplicationProvider(Provider):
     ) -> CurrentUserService:
         return CurrentUserService(user_id=user_id, gateway=user_gateway)
 
-    @provide
-    def project_unit_context_service(
-        self,
-        current_user: CurrentUserService,
-        projects: ProjectQueryGateway,
-        directories: DirectoryQueryGateway,
-    ) -> ProjectUnitContextService:
-        return ProjectUnitContextService(current_user, directories, projects)
+    document_manage_serivce = provide(DocumentManageContextService)
+    project_unit_creation_service = provide(ProjectUnitCreationContextService)
 
     project_mapper = provide(SqlAlchemyProjectMapper)
 
@@ -189,3 +189,5 @@ class ApplicationProvider(Provider):
     delete_document_composition = provide(DeleteDocumentComposition)
     delete_directory_usecase = provide(DeleteDirectoryUsecase)
     delete_directory_composition = provide(DeleteDirectoryComposition)
+    create_ticket_usecase = provide(CreateContentTicketUsecase)
+    create_ticket_composition = provide(CreateContentTicketComposition)

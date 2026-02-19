@@ -14,7 +14,10 @@ from application.ports.authorization import (
     CanManageProjectContent,
     ProjectContentManagmentContext,
 )
-from application.services import ProjectUnitContextService, ProjectUnitContext
+from application.services import (
+    ProjectUnitCreationContext,
+    ProjectUnitCreationContextService,
+)
 
 
 @dataclass
@@ -46,7 +49,7 @@ class CreateDirectoryUsecase:
     def __init__(
         self,
         clock: Clock,
-        context_service: ProjectUnitContextService,
+        context_service: ProjectUnitCreationContextService,
         directory_service: DirectoryService,
         directory_commands: DirectoryCommandGateway,
     ):
@@ -60,7 +63,7 @@ class CreateDirectoryUsecase:
     ) -> CreateDirectoryResponse:
         now: datetime = self._clock.now()
 
-        context: ProjectUnitContext = await self._context_service(
+        context: ProjectUnitCreationContext = await self._context_service(
             request.project_id, request.parent_id
         )
 

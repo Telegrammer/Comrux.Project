@@ -43,3 +43,6 @@ class DocumentService:
             created_by=creator,
             created_at=PassedDatetime(now, now),
         )
+
+    def belongs_to(self, document: Document, project: Project) -> bool:
+        return document.project.value == project.id_

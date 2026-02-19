@@ -21,8 +21,10 @@ class AuthConfig(BaseModel): ...
 
 
 class JwtAuthConfig(AuthConfig):
+    private_key: Path = BASE_DIR / "certificates" / "jwt-private.pem"
     public_key: Path = BASE_DIR / "certificates" / "jwt-public.pem"
     algorithm: str
+    access_token_expire_minutes: int
 
     @field_validator("algorithm")
     def validate_algorithm(cls, value: str) -> str:
@@ -37,6 +39,15 @@ class JwtAuthConfig(AuthConfig):
             raise ValueError(
                 f"""Current algorithm "{value}" is not allowed. Allowed: f{", ".join(allowed)}"""
             )
+
+    @field_validator("access_token_expire_minutes")
+    def validate_access_expire(cls, value: int) -> int:
+        expire_min_time: int = 1
+        expire_max_time: int = 24 * 60
+        if expire_min_time <= value <= expire_max_time:
+            return value
+        else:
+            raise ValueError("Expire time must be between 5 minutes and 24 hours")
 
 
 class DatabaseConfig(BaseModel):
