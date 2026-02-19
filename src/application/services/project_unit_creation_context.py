@@ -11,14 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ProjectUnitContext:
+class ProjectUnitCreationContext:
 
     current_user: User
     pinned_project: Project
     parent_directory: Directory
 
 
-class ProjectUnitContextService:
+class ProjectUnitCreationContextService:
 
     def __init__(
         self,
@@ -32,13 +32,13 @@ class ProjectUnitContextService:
 
     async def __call__(
         self, project_id: ProjectId, directory_id: DirectoryId
-    ) -> ProjectUnitContext:
+    ) -> ProjectUnitCreationContext:
 
         current_user: User = await self._current_user()
         project: Project = await self._project_queries.by_id(project_id.value)
         directory: Directory = await self._directory_queries.by_id(directory_id.value)
-        
-        return ProjectUnitContext(
+
+        return ProjectUnitCreationContext(
             current_user,
             project,
             directory,
