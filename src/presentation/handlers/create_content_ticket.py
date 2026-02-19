@@ -22,4 +22,4 @@ class CreateContentTicketHandler:
                 str(project_id), str(document_id)
             )
         )
-        return ContentTicketCreated(token=self._presenter.present(response))
+        return ContentTicketCreated(ticket=self._presenter.present(response))

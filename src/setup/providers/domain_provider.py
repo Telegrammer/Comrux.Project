@@ -8,20 +8,22 @@ from setup.config import Settings
 
 
 from domain import ProjectService, UserService, DirectoryService, DocumentService
-from domain.services import ContentTicketService
-from domain.policies import BirthDatePolicy, ContentTicketValidityPolicy
+from domain.services import ContentTicketService, TaskService
+from domain.policies import BirthDatePolicy, ContentTicketValidityPolicy, TaskPolicy
 from domain.ports import (
     ProjectIdGenerator,
     UserIdGenerator,
     ProjectUnitIdGenerator,
     ProjectUnitVisitor,
     ContentIdGenerator,
+    TaskIdGenerator,
 )
 from infrastructure.adapters import (
     Uuid4ProjectIdGenerator,
     Uuid4UserIdGenerator,
     Uuid4ProjectUnitIdGenerator,
     Uuid4ContentIdGenerator,
+    TaskUuid4Generator,
     JsonProjectUnitVisitor,
 )
 
@@ -42,6 +44,7 @@ class DomainProvider(Provider):
     content_id_generator = provide(
         source=Uuid4ContentIdGenerator, provides=ContentIdGenerator
     )
+    task_id_generator = provide(source=TaskUuid4Generator, provides=TaskIdGenerator)
     project_unit_visitor = provide(
         source=JsonProjectUnitVisitor, provides=ProjectUnitVisitor
     )
@@ -52,9 +55,18 @@ class DomainProvider(Provider):
 
     @provide
     def provide_content_policy(self) -> ContentTicketValidityPolicy:
-        return ContentTicketValidityPolicy(ttl=timedelta(seconds=60))
+        return ContentTicketValidityPolicy(ttl=timedelta(seconds=6000))
+
+    @provide
+    def provide_task_policy(self) -> TaskPolicy:
+        return TaskPolicy(
+            init_resend_delta=timedelta(seconds=10),
+            backoff_value=0.1,
+            max_attempt_count=3,
+        )
 
     user_service = provide(UserService)
     directory_service = provide(DirectoryService)
     document_service = provide(DocumentService)
     ticket_service = provide(ContentTicketService)
+    task_service = provide(TaskService)

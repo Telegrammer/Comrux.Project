@@ -12,8 +12,8 @@ class ContentTicketPayload(TypedDict):
     sub: str
     ref: str
     perms: list[str]
-    iat: datetime
-    exp: datetime
+    iat: float
+    exp: float
 
 
 class JwtContentTicketPresenter(ContentTicketPresenter):
@@ -29,8 +29,8 @@ class JwtContentTicketPresenter(ContentTicketPresenter):
             sub=response["user_id"],
             ref=response["content_ref"],
             perms=response["permissions"],
-            iat=response["issued_at"],
-            exp=response["expire_at"],
+            iat=response["issued_at"].timestamp(),
+            exp=response["expire_at"].timestamp(),
         )
         return jwt.encode(
             payload=payload, key=self._private_key, algorithm=self._algorithm

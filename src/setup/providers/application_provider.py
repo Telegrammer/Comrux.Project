@@ -53,8 +53,13 @@ from application.services import (
     ProjectUnitCreationContextService,
     DocumentManageContextService,
 )
-from application.ports import Clock
-from application.ports.mappers import ProjectMapper, UserMapper, DirectoryMapper
+from application.ports import Clock, TaskNotifier
+from application.ports.mappers import (
+    ProjectMapper,
+    UserMapper,
+    DirectoryMapper,
+    TaskMapper,
+)
 from application.ports.gateways import (
     ProjectCommandGateway,
     ProjectQueryGateway,
@@ -65,13 +70,19 @@ from application.ports.gateways import (
     DocumentCommandGateway,
     DocumentQueryGateway,
     ProjectUnitQueryGateway,
+    TaskCommandGateway,
 )
-from infrastructure.adapters import TimestampClock, JsonProjectUnitVisitor
+from infrastructure.adapters import (
+    TimestampClock,
+    JsonProjectUnitVisitor,
+    KafkaTaskNotifier,
+)
 from infrastructure.adapters.mappers import (
     SqlAlchemyProjectMapper,
     SqlAlchemyUserMapper,
     SqlAlchemyDirectoryMapper,
     SqlAlchemyDocumentMapper,
+    SqlAlchemyTaskMapper,
     ProjectUnitNodeMapper,
 )
 from infrastructure.adapters.gateways import (
@@ -85,6 +96,7 @@ from infrastructure.adapters.gateways import (
     SqlAlchemyDocumentQueryGateway,
     SQLAlchemyQueryBuilder,
     SqlAclhemyProjectUnitQueryGateway,
+    SqlAlchemyTaskCommandGateway,
 )
 
 
@@ -98,6 +110,12 @@ class ApplicationProvider(Provider):
     @provide
     def provide_query_builder(self) -> SQLAlchemyQueryBuilder:
         return SQLAlchemyQueryBuilder()
+
+    task_mapper = provide(source=SqlAlchemyTaskMapper, provides=TaskMapper)
+    task_gateway = provide(
+        source=SqlAlchemyTaskCommandGateway, provides=TaskCommandGateway
+    )
+    task_notifier = provide(source=KafkaTaskNotifier, provides=TaskNotifier)
 
     user_mapper = provide(SqlAlchemyUserMapper)
     user_command_gateway = provide(

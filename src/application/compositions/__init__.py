@@ -15,3 +15,4 @@ from .list_projects import ListProjectsComposition
 from .delete_document import DeleteDocumentComposition
 from .delete_directory import DeleteDirectoryComposition
 from .create_content_ticket import CreateContentTicketComposition
+from .process_tasks import ProcessTasksComposition

@@ -4,5 +4,6 @@ from .base import (
     ProjectUnitMapper,
     DocumentMapper,
     DirectoryMapper,
+    TaskMapper,
 )
 from .errors import MappingError

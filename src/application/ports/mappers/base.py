@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 
 from domain import Entity, Project, User, Directory, Document, ProjectUnit
+from domain.entities import Task
 
 
 class DataMapper[TEntity: Entity, Tdto](ABC):
@@ -28,3 +29,6 @@ class DirectoryMapper[Tdto](ProjectUnitMapper[Directory, Tdto]): ...
 
 
 class DocumentMapper[Tdto](ProjectUnitMapper[Document, Tdto]): ...
+
+
+class TaskMapper[Tdto](DataMapper[Task, Tdto]): ...

@@ -13,3 +13,6 @@ from .document import (
 from .project_unit import (
     ProjectUnitNodeMapper,
 )
+from .task import (
+    SqlAlchemyTaskMapper,
+)

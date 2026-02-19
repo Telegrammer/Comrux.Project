@@ -13,3 +13,4 @@ from .errors import GatewayFailedError
 from .directory import DirectoryCommandGateway, DirectoryQueryGateway
 from .document import DocumentCommandGateway, DocumentQueryGateway
 from .project_unit import ProjectUnitQueryGateway
+from .task import TaskCommandGateway, TaskQueryGateway

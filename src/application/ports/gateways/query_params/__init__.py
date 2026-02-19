@@ -12,3 +12,4 @@ from .common import (
     SearchQuery,
 )
 from .pagination_visitor import PaginationVisitor
+from .task import TaskListParams

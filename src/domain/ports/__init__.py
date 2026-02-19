@@ -4,5 +4,6 @@ from .id_generators import (
     UserIdGenerator,
     ContentIdGenerator,
     ProjectUnitIdGenerator,
+    TaskIdGenerator,
 )
 from .project_unit_visitor import ProjectUnitVisitor

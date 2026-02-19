@@ -5,4 +5,5 @@ from .providers import (
     ApplicationProvider,
     DomainProvider,
     PresentationProvider,
+    TransportProvider
 )

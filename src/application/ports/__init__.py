@@ -12,10 +12,13 @@ from .gateways import (
     DirectoryCommandGateway,
     ProjectUnitQueryGateway,
     DocumentQueryGateway,
+    TaskQueryGateway,
+    TaskCommandGateway,
 )
 from .clock import Clock
 from .unit_of_work import UnitOfWork
 from .transaction import Transaction
+from .task_notifier import TaskNotifier, TaskSendResult
 from .authorization import (
     CanDeleteProject,
     CanManageRole,

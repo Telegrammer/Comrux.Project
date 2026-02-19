@@ -27,3 +27,4 @@ from .document import (
     DocumentNotFoundError,
     DocumentNotInProjectError,
 )
+from .task import TaskAlreadyExistsError
