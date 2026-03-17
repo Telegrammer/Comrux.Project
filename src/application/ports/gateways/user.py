@@ -35,5 +35,11 @@ class UserQueryGateway(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    async def by_ids(self, ids: Iterable[UserId], params: UserListParams) -> Sequence[User]:
+    async def by_ids(
+        self, ids: Iterable[UserId], params: UserListParams
+    ) -> Sequence[User]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def read_all(self, params: UserListParams) -> Sequence[User]:
         raise NotImplementedError
