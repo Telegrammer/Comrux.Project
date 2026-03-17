@@ -1,8 +1,12 @@
 from typing import Sequence, TypedDict
 from dataclasses import dataclass
-from domain.entities import DirectoryId, ProjectId, ProjectUnit, Directory
+from domain.entities import DirectoryId, ProjectId, ProjectUnit, Directory, UserId, User
 from domain.ports import ProjectUnitVisitor
-from application.ports import DirectoryQueryGateway, ProjectUnitQueryGateway
+from application.ports import (
+    DirectoryQueryGateway,
+    ProjectUnitQueryGateway,
+    UserQueryGateway,
+)
 from application.ports.gateways.query_params import ProjectUnitListParams
 from application.exceptions import DirectoryNotInProjectError
 
@@ -25,9 +29,11 @@ class ListDirectoryContentUsecase:
         self,
         directory_gateway: DirectoryQueryGateway,
         project_unit_gateway: ProjectUnitQueryGateway,
+        user_gateway: UserQueryGateway,
     ):
         self._directory_gateway: DirectoryQueryGateway = directory_gateway
         self._project_unit_gateway: ProjectUnitQueryGateway = project_unit_gateway
+        self._user_gateway = user_gateway
 
     async def __call__(
         self,
@@ -49,4 +55,9 @@ class ListDirectoryContentUsecase:
             found_directory.id_, search_params
         )
 
-        response_visitor.visit_sequence(units)
+        owner_ids: set[UserId] = {unit.created_by.value for unit in units}
+        owners: Sequence[User] = await self._user_gateway.by_ids(owner_ids)
+
+        response_visitor.visit_sequence(
+            units, {UserId(owner.id_): owner for owner in owners}
+        )

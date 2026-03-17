@@ -42,17 +42,21 @@ class CreateContentTicketResponse(TypedDict):
     ticket_id: ContentTicketId
     username: Name
     user_id: UserId
+    project_id: ProjectId
     content_ref: ContentId
     permissions: list[ContentPermission]
     issued_at: PassedDatetime
     expire_at: FutureDatetime
 
     @classmethod
-    def from_entity(cls, entity: ContentTicket) -> "CreateContentTicketResponse":
+    def from_entity(
+        cls, entity: ContentTicket, project: ProjectId
+    ) -> "CreateContentTicketResponse":
         return cls(
             ticket_id=entity.id_,
             username=entity.username,
             user_id=entity.user_id,
+            project_id=project.value,
             content_ref=entity.content_ref,
             permissions=entity.permissions,
             issued_at=entity.issued_at,
@@ -99,4 +103,6 @@ class CreateContentTicketUsecase:
             content_ref=context.found_document.content_ref,
         )
 
-        return CreateContentTicketResponse.from_entity(content_ticket)
+        return CreateContentTicketResponse.from_entity(
+            content_ticket, request.project_id
+        )

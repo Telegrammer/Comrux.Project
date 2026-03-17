@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from domain import User, UserId
 from domain.services import UserService
-from domain.value_objects import Name, BirthDate
+from domain.value_objects import Name, BirthDate, EmailAddress
 from application.ports import UserCommandGateway, Clock
 
 
@@ -16,13 +16,14 @@ class CreateUserRequest:
 
     name: Name
     bio: str
+    email: EmailAddress
     birthdate: date
 
     @classmethod
     def from_primitives(
-        cls, *, name: str, bio: str, birthdate: date | None
+        cls, *, name: str, email: str, bio: str, birthdate: date
     ) -> "CreateUserRequest":
-        return cls(name=Name(name), bio=bio, birthdate=birthdate)
+        return cls(name=Name(name), email=EmailAddress(email), bio=bio, birthdate=birthdate)
 
 
 class CreateUserUsecase:
@@ -37,7 +38,7 @@ class CreateUserUsecase:
     async def __call__(self, request: CreateUserRequest) -> None:
         now: date = self._clock.now().date()
         new_user: User = self._user_service.create_user(
-            now, request.name, request.bio, request.birthdate
+            now, request.email, request.name, request.bio, request.birthdate
         )
         await self._user_gateway.add(new_user)
         return CreateUserResponse.from_entity(new_user)

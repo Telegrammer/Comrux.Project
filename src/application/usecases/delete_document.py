@@ -47,7 +47,7 @@ class DeleteDocumentUsecase:
 
         try:
             context: DocumentManageContext = await self._context_service(
-                request.project_id.value, request.document_id.value
+                request.project_id, request.document_id
             )
         except DocumentNotFoundError:
             return "Document is already deleted or never been in system"
