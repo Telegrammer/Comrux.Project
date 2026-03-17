@@ -36,8 +36,8 @@ class CreateDocumentComposition:
                 self._task_service.create_task(
                     "document.created",
                     {
-                        "id": response["content_ref"],
-                        "project": request.project_id.value,
+                        "document_id": response["content_ref"],
+                        "group": request.project_id.value,
                     },
                     now=self._clock.now(),
                 )
