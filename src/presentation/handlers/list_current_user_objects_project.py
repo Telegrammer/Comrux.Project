@@ -32,7 +32,9 @@ class ListCurrentUserProjectsHandler:
             ListCurrentUserProjectsRequest(
                 role.upper() if role != "" else None,
                 ProjectListParams(
-                    OffsetPagination(offset, limit), self._orders_presenter(raw_orders)
+                    filters=[],
+                    pagination=OffsetPagination(offset, limit),
+                    sorting=self._orders_presenter(raw_orders),
                 ),
             )
         )

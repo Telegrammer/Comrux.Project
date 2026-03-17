@@ -25,7 +25,9 @@ class ListProjectsHandler:
     ) -> list[ProjectRead]:
         response: list[ListProjectsElementResponse] = await self._usecase(
             ProjectListParams(
-                OffsetPagination(offset, limit), self._orders_presenter(raw_orders)
+                filters=[],
+                pagination=OffsetPagination(offset, limit),
+                sorting=self._orders_presenter(raw_orders),
             )
         )
 
@@ -35,6 +37,7 @@ class ListProjectsHandler:
                 title=elem["title"],
                 description=elem["description"],
                 owner_id=elem["owner_id"],
+                owner_name=elem["owner_name"],
                 members_count=elem["members_count"],
                 created_at=elem["created_at"],
                 root_id=elem["root_id"],

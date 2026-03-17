@@ -17,6 +17,7 @@ class ProjectCreated(BaseModel):
 class ProjectRead(ProjectCreate):
     id_: str
     owner_id: str
+    owner_name: str
     members_count: int
     created_at: datetime
     root_id: str

@@ -25,7 +25,9 @@ class ListProjectMembersHandler:
         response: list[ListProjectMembersElementResponse] = await self._usecase(
             ListProjectMembersRequest.from_primitives(project_id),
             UserListParams(
-                OffsetPagination(offset, limit), self._orders_presenter(raw_orders)
+                filters=[],
+                pagination=OffsetPagination(offset, limit),
+                sorting=self._orders_presenter(raw_orders),
             ),
         )
 

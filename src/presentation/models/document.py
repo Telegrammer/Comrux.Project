@@ -16,4 +16,5 @@ class DocumentCreated(BaseModel):
 class DocumentRead(DocumentCreated):
     unit_type: Literal[ProjectUnitType.DOCUMENT]
     name: str
-    created_by: UUID4
+    owner_name: str | None
+    created_by: UUID4 | None

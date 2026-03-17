@@ -11,6 +11,7 @@ class ContentTicketPayload(TypedDict):
     usr: str
     sub: str
     ref: str
+    grp: str
     perms: list[str]
     iat: float
     exp: float
@@ -28,6 +29,7 @@ class JwtContentTicketPresenter(ContentTicketPresenter):
             usr=response["username"],
             sub=response["user_id"],
             ref=response["content_ref"],
+            grp=response["project_id"],
             perms=response["permissions"],
             iat=response["issued_at"].timestamp(),
             exp=response["expire_at"].timestamp(),

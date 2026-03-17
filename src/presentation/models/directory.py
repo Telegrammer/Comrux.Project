@@ -16,7 +16,8 @@ class DirectoryCreated(BaseModel):
 class DirectoryRead(DirectoryCreated):
     unit_type: Literal[ProjectUnitType.DIRECTORY]
     name: str
-    created_by: UUID4
+    owner_name: str | None
+    created_by: UUID4 | None
 
 
 class DirectoryContentRead(BaseModel):

@@ -43,7 +43,9 @@ class ListDirectoryContentHandler:
                 project=str(project_id), parent=str(directory_id)
             ),
             ProjectUnitListParams(
-                OffsetPagination(offset, limit), self._orders_presenter(raw_orders)
+                filters=[],
+                pagination=OffsetPagination(offset, limit),
+                sorting=self._orders_presenter(raw_orders),
             ),
         )
 
