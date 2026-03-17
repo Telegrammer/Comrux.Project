@@ -1,6 +1,6 @@
 from typing import Sequence
 from domain.ports import ProjectUnitVisitor
-from domain.entities import Directory, Document, ProjectUnit
+from domain.entities import Directory, Document, ProjectUnit, User, UserId
 
 
 from infrastructure.models import DirectoryAttributes, DocumentAttributes
@@ -17,7 +17,9 @@ class JsonProjectUnitVisitor(ProjectUnitVisitor):
     def visit_document(self, document: Document) -> DocumentAttributes:
         return DocumentAttributes(content_ref=document.content_ref)
 
-    def visit_sequence(self, units: Sequence[ProjectUnit]):
+    def visit_sequence(
+        self, units: Sequence[ProjectUnit], owners: dict[UserId, User] = {}
+    ):
         for unit in units:
             self._saved_units.append(unit.accept(self))
 

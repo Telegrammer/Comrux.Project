@@ -11,6 +11,7 @@ from .project_membership import ProjectMembership
 
 class User(Base):
     id_: Mapped[UUID] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(unique=True, nullable=True)
     name: Mapped[str] = mapped_column(nullable=False)
     bio: Mapped[str] = mapped_column(nullable=True)
     birthdate: Mapped[date] = mapped_column(nullable=True)

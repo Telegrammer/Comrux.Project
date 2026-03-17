@@ -1,6 +1,6 @@
 # infrastructure/persistence/query_builder.py
 
-from sqlalchemy import Select
+from sqlalchemy import Select, ColumnElement
 from sqlalchemy.orm import DeclarativeBase
 
 from application.ports.gateways.query_params import (
@@ -8,9 +8,11 @@ from application.ports.gateways.query_params import (
     SortingParam,
     SortingOrder,
     SearchQuery,
+    FilterParam,
 )
 from .query_params.base import OrderableColumn
 from .query_params.pagination import SQLAlchemyPaginationApplier
+from .query_params.filter import SqlAlchemyFilterVisitor
 
 
 class SQLAlchemyQueryBuilder:
@@ -50,10 +52,16 @@ class SQLAlchemyQueryBuilder:
         applier = SQLAlchemyPaginationApplier(query, self._resolve_column)
         return pagination.accept(applier)
 
+    def _apply_filter(self, query: Select, filters: list[FilterParam]) -> Select:
+        visitor = SqlAlchemyFilterVisitor(self._resolve_column)
+        clauses: list[ColumnElement[bool]] = [f.accept(visitor) for f in filters]
+        return query.where(*clauses) if clauses else query
+
     def apply(
         self, query: Select, search: SearchQuery, model: type[DeclarativeBase]
     ) -> Select:
         self._model = model
+        query = self._apply_filter(query, search.filters)
         query = self._apply_sorting(query, search.sorting)
         query = self._apply_pagination(query, search.pagination)
         return query

@@ -57,12 +57,21 @@ class SqlAlchemyUserQueryGateway:
 
     @network_error_aware("Cannot find users: can't reach to them")
     async def by_ids(
-        self, ids: Iterable[UserId], search_params: UserListParams
+        self, ids: Iterable[UserId], search_params: UserListParams | None = None
     ) -> Sequence[User]:
 
         stmt: Select = select(OrmUser).where(OrmUser.id_.in_(ids))
-        stmt = self._query_builder.apply(stmt, search_params, OrmUser)
+        if search_params:
+            stmt = self._query_builder.apply(stmt, search_params, OrmUser)
 
         response = await self._session.scalars(stmt)
-        users: Sequence[User] = response.all()
+        users: Sequence[OrmUser] = response.all()
+        return [self._mapper.to_domain(user) for user in users]
+
+    @network_error_aware("Cannot find users: can't reach to them")
+    async def read_all(self, params: UserListParams) -> Sequence[User]:
+        stmt: Select = select(OrmUser)
+        stmt = self._query_builder.apply(stmt, params, OrmUser)
+        response = await self._session.scalars(stmt)
+        users: Sequence[OrmUser] = response.all()
         return [self._mapper.to_domain(user) for user in users]

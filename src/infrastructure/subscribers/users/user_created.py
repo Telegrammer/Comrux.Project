@@ -25,7 +25,10 @@ async def create_user(usecase: FromDishka[CreateUserComposition], message: UserC
     try:
         await usecase(
             CreateUserRequest.from_primitives(
-                name=message.name, bio=message.bio, birthdate=message.birthdate
+                email=message.email,
+                name=message.name,
+                bio=message.bio,
+                birthdate=message.birthdate,
             )
         )
     except KeyError:
