@@ -3,7 +3,7 @@ from typing import Protocol, TYPE_CHECKING, Sequence
 from abc import abstractmethod
 
 if TYPE_CHECKING:
-    from ..entities import Document, Directory, ProjectUnit
+    from ..entities import Document, Directory, ProjectUnit, UserId, User
 
 
 class ProjectUnitVisitor(Protocol):
@@ -17,7 +17,9 @@ class ProjectUnitVisitor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def visit_sequence(self, units: Sequence[ProjectUnit]) -> None:
+    def visit_sequence(
+        self, units: Sequence[ProjectUnit], owners: dict[UserId, User] = {}
+    ) -> None:
         raise NotImplementedError
 
     @abstractmethod
