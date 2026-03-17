@@ -6,3 +6,4 @@ from .title import Title
 from .birth_date import BirthDate
 from .name import Name
 from .file_name import FileName
+from .email_address import EmailAddress
