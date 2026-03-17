@@ -28,6 +28,8 @@ from application.compositions import (
     DeleteDocumentComposition,
     DeleteDirectoryComposition,
     CreateContentTicketComposition,
+    GetUserCompostion,
+    ListUsersComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -47,6 +49,9 @@ from application.usecases import (
     DeleteDocumentUsecase,
     DeleteDirectoryUsecase,
     CreateContentTicketUsecase,
+    GetUserUsecase,
+    ListUsersUsecase,
+    GetCurrentUserUsecase,
 )
 from application.services import (
     CurrentUserService,
@@ -209,3 +214,8 @@ class ApplicationProvider(Provider):
     delete_directory_composition = provide(DeleteDirectoryComposition)
     create_ticket_usecase = provide(CreateContentTicketUsecase)
     create_ticket_composition = provide(CreateContentTicketComposition)
+    get_user_usecase = provide(GetUserUsecase)
+    get_user_composition = provide(GetUserCompostion)
+    list_users_usecase = provide(ListUsersUsecase)
+    list_users_composition = provide(ListUsersComposition)
+    get_current_user = provide(GetCurrentUserUsecase)

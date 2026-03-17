@@ -7,6 +7,7 @@ import dishka.integrations.faststream as faststream_integration
 from faststream.kafka import KafkaBroker
 from faststream import ContextRepo, FastStream
 import logging
+import json
 
 from setup import (
     Settings,
@@ -77,6 +78,8 @@ def create_app() -> FastAPI:
             "http://127.0.0.1:8000",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "http://26.148.37.12:3000",
+            "http://0.0.0.0:3000",
         ],
         allow_credentials=True,
         allow_methods=["*"],
@@ -86,4 +89,6 @@ def create_app() -> FastAPI:
     fastapi_integration.setup_dishka(container=container, app=app)
 
     logger.info("App created")
+    with open("openapi.json", "w") as f:
+        json.dump(app.openapi(), f)
     return app
