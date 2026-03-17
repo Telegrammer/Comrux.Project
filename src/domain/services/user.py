@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 
 from ..policies import BirthDatePolicy
 from ..entities import Project, User
-from ..value_objects import Name, BirthDate
+from ..value_objects import Name, BirthDate, EmailAddress
 from ..ports import UserIdGenerator
 
 
@@ -21,6 +21,7 @@ class UserService:
     def create_user(
         self,
         now: date,
+        email: EmailAddress,
         name: Name,
         bio: str,
         birthdate: date,
@@ -33,6 +34,7 @@ class UserService:
         )
         return User(
             id_=self._id_generator(),
+            email=email,
             name=name,
             bio=bio,
             birthdate=verified_birthdate,
