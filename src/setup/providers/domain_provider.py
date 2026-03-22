@@ -8,7 +8,7 @@ from setup.config import Settings
 
 
 from domain import ProjectService, UserService, DirectoryService, DocumentService
-from domain.services import ContentTicketService, TaskService
+from domain.services import ContentTicketService, TaskService, AccessListService
 from domain.policies import BirthDatePolicy, ContentTicketValidityPolicy, TaskPolicy
 from domain.ports import (
     ProjectIdGenerator,
@@ -17,12 +17,14 @@ from domain.ports import (
     ProjectUnitVisitor,
     ContentIdGenerator,
     TaskIdGenerator,
+    AccessListIdGenerator,
 )
 from infrastructure.adapters import (
     Uuid4ProjectIdGenerator,
     Uuid4UserIdGenerator,
     Uuid4ProjectUnitIdGenerator,
     Uuid4ContentIdGenerator,
+    Uuid4AccessListIdGenerator,
     TaskUuid4Generator,
     JsonProjectUnitVisitor,
 )
@@ -49,6 +51,10 @@ class DomainProvider(Provider):
         source=JsonProjectUnitVisitor, provides=ProjectUnitVisitor
     )
 
+    access_list_id_generator = provide(
+        source=Uuid4AccessListIdGenerator, provides=AccessListIdGenerator
+    )
+
     @provide
     def provide_birthdate_policy(self) -> BirthDatePolicy:
         return BirthDatePolicy(date(1900, 1, 1), relativedelta(years=12))
@@ -70,3 +76,4 @@ class DomainProvider(Provider):
     document_service = provide(DocumentService)
     ticket_service = provide(ContentTicketService)
     task_service = provide(TaskService)
+    acl_service = provide(AccessListService)

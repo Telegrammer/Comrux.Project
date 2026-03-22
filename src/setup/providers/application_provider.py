@@ -30,6 +30,8 @@ from application.compositions import (
     CreateContentTicketComposition,
     GetUserCompostion,
     ListUsersComposition,
+    CreateAccessListComposition,
+    ListProjectAccessListsComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -52,6 +54,8 @@ from application.usecases import (
     GetUserUsecase,
     ListUsersUsecase,
     GetCurrentUserUsecase,
+    CreateAccessListUsecase,
+    ListAccessListsUsecase,
 )
 from application.services import (
     CurrentUserService,
@@ -60,9 +64,6 @@ from application.services import (
 )
 from application.ports import Clock, TaskNotifier
 from application.ports.mappers import (
-    ProjectMapper,
-    UserMapper,
-    DirectoryMapper,
     TaskMapper,
 )
 from application.ports.gateways import (
@@ -76,6 +77,8 @@ from application.ports.gateways import (
     DocumentQueryGateway,
     ProjectUnitQueryGateway,
     TaskCommandGateway,
+    AccessListCommandGateway,
+    AccessListQueryGateway,
 )
 from infrastructure.adapters import (
     TimestampClock,
@@ -89,6 +92,7 @@ from infrastructure.adapters.mappers import (
     SqlAlchemyDocumentMapper,
     SqlAlchemyTaskMapper,
     ProjectUnitNodeMapper,
+    SqlAlchemyAccessListMapper,
 )
 from infrastructure.adapters.gateways import (
     SqlAlchemyProjectCommandGateway,
@@ -102,6 +106,8 @@ from infrastructure.adapters.gateways import (
     SQLAlchemyQueryBuilder,
     SqlAclhemyProjectUnitQueryGateway,
     SqlAlchemyTaskCommandGateway,
+    SqlAlchemyAccessListCommandGateway,
+    SqlAlchemyAccessListQueryGateway,
 )
 
 
@@ -182,6 +188,14 @@ class ApplicationProvider(Provider):
         source=SqlAlchemyDocumentQueryGateway, provides=DocumentQueryGateway
     )
 
+    access_list_mapper = provide(SqlAlchemyAccessListMapper)
+    access_list_command_gateway = provide(
+        source=SqlAlchemyAccessListCommandGateway, provides=AccessListCommandGateway
+    )
+    access_list_query_gateway = provide(
+        source=SqlAlchemyAccessListQueryGateway,
+        provides=AccessListQueryGateway,
+    )
     create_project_usecase = provide(CreateProjectUsecase)
     create_project_composition = provide(CreateProjectComposition)
     list_projects_usecase = provide(ListProjectsUsecase)
@@ -219,3 +233,7 @@ class ApplicationProvider(Provider):
     list_users_usecase = provide(ListUsersUsecase)
     list_users_composition = provide(ListUsersComposition)
     get_current_user = provide(GetCurrentUserUsecase)
+    create_access_list_usecase = provide(CreateAccessListUsecase)
+    create_access_list_composition = provide(CreateAccessListComposition)
+    list_access_lists_usecase = provide(ListAccessListsUsecase)
+    list_access_lists_composition = provide(ListProjectAccessListsComposition)
