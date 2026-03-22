@@ -6,4 +6,5 @@ from .base import (
     DirectoryMapper,
     TaskMapper,
 )
+from .access_list import AccessListMapper
 from .errors import MappingError
