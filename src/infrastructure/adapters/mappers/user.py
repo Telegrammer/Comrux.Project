@@ -10,7 +10,7 @@ from infrastructure.models import (
 )
 
 
-class SqlAlchemyUserMapper(ProjectMapper[User, OrmUser]):
+class SqlAlchemyUserMapper(ProjectMapper[OrmUser]):
 
     def to_dto(self, entity: User, old_dto: OrmUser | None = None) -> OrmUser:
 

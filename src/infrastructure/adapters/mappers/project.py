@@ -16,7 +16,7 @@ from infrastructure.models import (
 )
 
 
-class SqlAlchemyProjectMapper(ProjectMapper[Project, ProjectDto]):
+class SqlAlchemyProjectMapper(ProjectMapper[ProjectDto]):
 
     def __init__(self, clock: Clock):
         self._clock: Clock = clock
