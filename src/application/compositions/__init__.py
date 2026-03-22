@@ -18,3 +18,5 @@ from .create_content_ticket import CreateContentTicketComposition
 from .process_tasks import ProcessTasksComposition
 from .get_user import GetUserCompostion
 from .list_users import ListUsersComposition
+from .create_access_list import CreateAccessListComposition
+from .list_project_access_lists import ListProjectAccessListsComposition
