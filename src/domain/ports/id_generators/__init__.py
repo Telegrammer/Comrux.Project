@@ -4,3 +4,4 @@ from .content_id_generator import ContentIdGenerator
 from .project_unit_id_generator import ProjectUnitIdGenerator
 from .ticket_id_generator import ContentTicketIdGenerator
 from .task_id_generator import TaskIdGenerator
+from .access_list_id_generator import AccessListIdGenerator

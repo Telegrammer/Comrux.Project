@@ -1,6 +1,3 @@
-__all__ = ["ProjectMustHaveOwnerError"]
-
-
 from .base import DomainError
 
 
