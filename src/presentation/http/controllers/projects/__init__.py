@@ -14,6 +14,8 @@ from .list_directory_content import create_list_directory_content_router
 from .delete_document import create_delete_document_router
 from .delete_directory import create_delete_directory_router
 from .access_content import create_content_ticket_router
+from .add_access_list import create_add_acl_router
+from .list_access_lists import create_list_acls_router
 
 projects_router = APIRouter(prefix="/project", tags=["project"])
 projects_router.include_router(create_create_project_router())
@@ -23,11 +25,14 @@ projects_router.include_router(create_delete_project_router())
 projects_router.include_router(create_grant_owner_router())
 projects_router.include_router(create_add_member_router())
 projects_router.include_router(create_list_members_router())
+projects_router.include_router(create_list_acls_router())
 projects_router.include_router(create_remove_member_router())
 projects_router.include_router(create_set_role_router())
+projects_router.include_router(create_add_acl_router())
 projects_router.include_router(create_add_directory_router())
 projects_router.include_router(create_add_document_router())
 projects_router.include_router(create_list_directory_content_router())
 projects_router.include_router(create_delete_document_router())
 projects_router.include_router(create_delete_directory_router())
 projects_router.include_router(create_content_ticket_router())
+projects_router.include_router(create_list_acls_router())

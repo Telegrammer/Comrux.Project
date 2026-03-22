@@ -41,7 +41,7 @@ class PydanticProjectUnitVisitor(ProjectUnitVisitor):
             unit.accept(self) for unit in units
         ]
 
-    def get_visited(self) -> list[DirectoryRead, DocumentRead]:
+    def get_visited(self) -> list[DirectoryRead | DocumentRead]:
         return self._units
 
     def count_visited(self) -> int:

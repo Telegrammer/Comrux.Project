@@ -18,3 +18,5 @@ from .create_content_ticket import CreateContentTicketHandler
 from .get_user import GetUserHandler
 from .list_users import ListUsersHandler
 from .get_current_user import GetCurrentUserHandler
+from .create_access_list import CreateAccessListHandler
+from .list_project_access_lists import ListProjectAccessListsHandler
