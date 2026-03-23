@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from domain.entities import User, Project, ProjectId, UserId
+from domain.entities import User, Project, ProjectId, UserId, AccessList
 from domain.enums.project_roles import ProjectRole
 from .base import Permission, PermissionContext, AuthorizationResult
 from .role_hierarchy import (
@@ -29,7 +29,7 @@ class ProjectManagmentContext(PermissionContext):
 
 
 class CanDeleteProject(Permission[ProjectManagmentContext]):
-    def is_satisfied_by(self, context: ProjectManagmentContext) -> bool:
+    def is_satisfied_by(self, context: ProjectManagmentContext) -> AuthorizationResult:
         subject_id: UserId = context.subject.id_
         subject_role: ProjectRole = context.target.members.get(UserId(subject_id), None)
         if subject_role == ProjectRole.OWNER:
@@ -39,7 +39,7 @@ class CanDeleteProject(Permission[ProjectManagmentContext]):
 
 class CanUpdateProject(Permission[ProjectManagmentContext]):
 
-    def is_satisfied_by(self, context: ProjectManagmentContext) -> bool:
+    def is_satisfied_by(self, context: ProjectManagmentContext) -> AuthorizationResult:
         subject_id: UserId = context.subject.id_
         subject_role: ProjectRole = context.target.members.get(UserId(subject_id), None)
         if subject_role not in {ProjectRole.OWNER, ProjectRole.LEAD}:
@@ -80,7 +80,7 @@ class CanManageRole(Permission[RoleManagementContext]):
     ) -> None:
         self._role_hierarchy = role_hierarchy
 
-    def is_satisfied_by(self, context: RoleManagementContext) -> bool:
+    def is_satisfied_by(self, context: RoleManagementContext) -> AuthorizationResult:
         allowed_roles = self._role_hierarchy.get(context.subject_role, set())
 
         if context.target_role not in allowed_roles:
@@ -98,3 +98,42 @@ class CanManageRole(Permission[RoleManagementContext]):
             )
 
         return AuthorizationResult(True)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AccessListManagmentContext(PermissionContext):
+    subject: User
+    target_project: Project
+    target_list: AccessList
+
+
+class CanDeleteAccessList(CanUpdateProject, Permission[AccessListManagmentContext]):
+
+    def is_satisfied_by(
+        self, context: AccessListManagmentContext
+    ) -> AuthorizationResult:
+
+        update_permisson: AuthorizationResult = CanUpdateProject.is_satisfied_by(
+            self,
+            context=ProjectManagmentContext(
+                subject=context.subject, target=context.target_project
+            )
+        )
+
+        if not update_permisson.success:
+            return update_permisson
+
+        subject_role: ProjectRole | None = context.target_project.members.get(
+            context.subject.id_, None
+        )
+        if subject_role == ProjectRole.OWNER:
+            return AuthorizationResult(True)
+
+        target_list: AccessList = context.target_list
+        if not target_list or target_list.owner == context.subject.id_:
+            return AuthorizationResult(True)
+
+        return AuthorizationResult(
+            False,
+            f"""Subject is not owner of access list or project itself""",
+        )

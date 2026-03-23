@@ -3,7 +3,7 @@ __all__ = ["CurrentUserService"]
 
 from domain import User, UserId
 from application.ports.gateways import UserQueryGateway
-from application.exceptions import UserNotFoundError
+from application.exceptions import CurrentUserNotFoundError
 
 
 class CurrentUserService:
@@ -18,5 +18,5 @@ class CurrentUserService:
             return self._user
         self._user = await self._gateway.by_id(self._id.value)
         if not self._user:
-            raise UserNotFoundError("Current user not found")
+            raise CurrentUserNotFoundError("Current user not found")
         return self._user
