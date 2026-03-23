@@ -1,4 +1,5 @@
 from sqlalchemy import select, delete as sql_delete, Delete
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.entities import Directory, DirectoryId
@@ -30,10 +31,21 @@ class SqlAlchemyDirectoryCommandGateway:
         await self._session.flush()
 
     @network_error_aware("Cannot delete document: document are unreachable via network")
-    async def delete(self, document_id: DirectoryId) -> None:
-        stmt: Delete = sql_delete(ProjectUnitNode).where(
-            ProjectUnitNode.id_ == document_id
+    async def delete(self, directory_id: DirectoryId) -> None:
+
+        tree = (
+            select(ProjectUnitNode.id_)
+            .where(ProjectUnitNode.id_ == directory_id)
+            .cte("tree", recursive=True)
         )
+
+        pun = aliased(ProjectUnitNode)
+        tree = tree.union_all(select(pun.id_).where(pun.parent_id == tree.c.id_))
+
+        stmt = sql_delete(ProjectUnitNode).where(
+            ProjectUnitNode.id_.in_(select(tree.c.id_))
+        )
+
         await self._session.execute(stmt)
 
 

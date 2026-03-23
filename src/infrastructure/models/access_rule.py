@@ -9,19 +9,10 @@ from domain.enums import ProjectUnitAction
 from .base import Base
 from .access_rule_target import (
     AccessRuleTarget,
-    AccessRuleUserTarget,
-    AccessRuleRoleTarget,
 )
 
 
 class AccessList: ...
-
-
-AccessRuleTargetPoly = with_polymorphic(
-    AccessRuleTarget,
-    [AccessRuleUserTarget, AccessRuleRoleTarget],
-    flat=True,
-)
 
 
 class AccessRule(Base):
