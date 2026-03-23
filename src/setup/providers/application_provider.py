@@ -32,6 +32,7 @@ from application.compositions import (
     ListUsersComposition,
     CreateAccessListComposition,
     ListProjectAccessListsComposition,
+    DeleteAccessListComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -56,6 +57,7 @@ from application.usecases import (
     GetCurrentUserUsecase,
     CreateAccessListUsecase,
     ListAccessListsUsecase,
+    DeleteAccessListUsecase,
 )
 from application.services import (
     CurrentUserService,
@@ -237,3 +239,5 @@ class ApplicationProvider(Provider):
     create_access_list_composition = provide(CreateAccessListComposition)
     list_access_lists_usecase = provide(ListAccessListsUsecase)
     list_access_lists_composition = provide(ListProjectAccessListsComposition)
+    delete_access_list_usecase = provide(DeleteAccessListUsecase)
+    delete_access_list_composition = provide(DeleteAccessListComposition)
