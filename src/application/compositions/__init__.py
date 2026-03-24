@@ -21,3 +21,4 @@ from .list_users import ListUsersComposition
 from .create_access_list import CreateAccessListComposition
 from .list_project_access_lists import ListProjectAccessListsComposition
 from .delete_access_list import DeleteAccessListComposition
+from .assign_access_list import AssignAccessListComposition
