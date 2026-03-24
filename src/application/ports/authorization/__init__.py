@@ -11,5 +11,6 @@ from .permissions import (
     ProjectContentManagmentContext,
     CanDeleteAccessList,
     AccessListManagmentContext,
+    CanAssignAccessList,
 )
 from .authorize import authorize

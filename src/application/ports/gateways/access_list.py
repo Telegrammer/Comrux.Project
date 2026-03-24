@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from typing import Protocol, Sequence
-from domain.entities import AccessList, ProjectId, AccessListId
+from domain.entities import AccessList, ProjectId, AccessListId, ProjectUnitId
 from domain.value_objects import Name
 
 from application.models import ProjectAccessListsRead
@@ -32,4 +32,10 @@ class AccessListQueryGateway(Protocol):
 
     @abstractmethod
     async def by_id(self, access_list_id: AccessListId) -> AccessList:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def by_project_unit(
+        self, project_unit_id: ProjectUnitId
+    ) -> Sequence[AccessList]:
         raise NotImplementedError

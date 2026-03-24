@@ -117,7 +117,7 @@ class CanDeleteAccessList(CanUpdateProject, Permission[AccessListManagmentContex
             self,
             context=ProjectManagmentContext(
                 subject=context.subject, target=context.target_project
-            )
+            ),
         )
 
         if not update_permisson.success:
@@ -137,3 +137,6 @@ class CanDeleteAccessList(CanUpdateProject, Permission[AccessListManagmentContex
             False,
             f"""Subject is not owner of access list or project itself""",
         )
+
+
+class CanAssignAccessList(CanUpdateProject): ...

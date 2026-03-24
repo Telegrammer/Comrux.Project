@@ -33,3 +33,6 @@ from .access_list import (
     AccessListNotFoundError,
     AccessListNotInProjectError,
 )
+from .project_unit import (
+    UnitNotInProjectError,
+)
