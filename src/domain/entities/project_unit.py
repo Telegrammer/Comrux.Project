@@ -6,6 +6,7 @@ from abc import abstractmethod
 from .base import Entity
 from .project import ProjectId
 from .user import UserId
+from .access_list import AccessListId
 from ..value_objects import Uuid4, FileName, PassedDatetime
 from ..enums import ProjectUnitType
 
@@ -22,13 +23,12 @@ class ProjectUnit(Entity[ProjectUnitId]):
     name: FileName
     project: ProjectId
     created_at: PassedDatetime
+    access_list: AccessListId | None
     created_by: UserId | None
 
     @property
-    @abstractmethod
     def unit_type(self) -> ProjectUnitType:
         raise NotImplementedError
 
-    @abstractmethod
     def accept[resT](self, vistor: ProjectUnitVisitor) -> resT:
         raise NotImplementedError

@@ -6,32 +6,32 @@ from ..enums import ProjectRole, ProjectUnitAction
 from ..value_objects import Uuid4, FileName
 from .base import AggregationRoot
 from .user import UserId
-from .project import ProjectId
+from .project import ProjectId, Project
 
 
-class AccessRuleTargetVisior(Protocol):
+class AccessRuleTargetVisitor(Protocol):
 
     def visit_user[T](self, target: "AccessRuleUserTarget") -> T: ...
     def visit_role[T](self, target: "AccessRuleRoleTarget") -> T: ...
 
 
 @dataclass(frozen=True)
-class AccessRuleTarget(ABC):
+class AccessRuleTarget[valT](ABC):
 
     @abstractmethod
-    def accept[T](self, visitor: AccessRuleTargetVisior) -> T:
+    def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
         raise NotImplementedError
 
 
 @dataclass(init=False, frozen=True, eq=False)
-class AccessRuleUserTarget(AccessRuleTarget):
+class AccessRuleUserTarget(AccessRuleTarget[UserId]):
 
     user_id: UserId
 
     def __init__(self, user_id: str):
         self.user_id = UserId(user_id)
 
-    def accept[T](self, visitor: AccessRuleTargetVisior) -> T:
+    def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
         return visitor.visit_user(self)
 
     def __eq__(self, other):
@@ -46,7 +46,7 @@ class AccessRuleRoleTarget(AccessRuleTarget):
 
     role: ProjectRole
 
-    def accept[T](self, visitor: AccessRuleTargetVisior) -> T:
+    def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
         return visitor.visit_role(self)
 
     def __eq__(self, other: "AccessRuleRoleTarget") -> bool:
@@ -67,6 +67,12 @@ class AccessRule:
 
     def __hash__(self) -> int:
         return hash((self.target, self.action))
+
+
+@dataclass
+class ResolvedUnitPermissions:
+    allowed: dict[UserId, ProjectUnitAction] = field(default_factory=set)
+    denied: dict[UserId, ProjectUnitAction] = field(default_factory=set)
 
 
 class AccessListId(Uuid4): ...

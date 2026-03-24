@@ -19,5 +19,7 @@ from .entities import (
     DocumentId,
     Directory,
     DirectoryId,
+    AccessListId,
+    AccessList,
 )
 from .value_objects import Title
