@@ -33,6 +33,7 @@ from application.compositions import (
     CreateAccessListComposition,
     ListProjectAccessListsComposition,
     DeleteAccessListComposition,
+    AssignAccessListComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -58,11 +59,15 @@ from application.usecases import (
     CreateAccessListUsecase,
     ListAccessListsUsecase,
     DeleteAccessListUsecase,
+    AssignAccessListToDirectoryUsecase,
+    AssignAccessListToDocumentUsecase,
 )
 from application.services import (
     CurrentUserService,
-    ProjectUnitCreationContextService,
+    DirectoryManageContextService,
     DocumentManageContextService,
+    ProjectUnitPermissionService,
+    AssignAccessListService,
 )
 from application.ports import Clock, TaskNotifier
 from application.ports.mappers import (
@@ -77,6 +82,7 @@ from application.ports.gateways import (
     DirectoryQueryGateway,
     DocumentCommandGateway,
     DocumentQueryGateway,
+    ProjectUnitCommandGateway,
     ProjectUnitQueryGateway,
     TaskCommandGateway,
     AccessListCommandGateway,
@@ -110,6 +116,7 @@ from infrastructure.adapters.gateways import (
     SqlAlchemyTaskCommandGateway,
     SqlAlchemyAccessListCommandGateway,
     SqlAlchemyAccessListQueryGateway,
+    SqlAclhemyProjectUnitCommandGateway,
 )
 
 
@@ -147,7 +154,9 @@ class ApplicationProvider(Provider):
         return CurrentUserService(user_id=user_id, gateway=user_gateway)
 
     document_manage_serivce = provide(DocumentManageContextService)
-    project_unit_creation_service = provide(ProjectUnitCreationContextService)
+    directory_manage_serivce = provide(DirectoryManageContextService)
+    project_unit_permission_service = provide(ProjectUnitPermissionService)
+    access_list_assign_service = provide(AssignAccessListService)
 
     project_mapper = provide(SqlAlchemyProjectMapper)
 
@@ -160,8 +169,11 @@ class ApplicationProvider(Provider):
         provides=ProjectQueryGateway,
     )
 
-    project_unit_gateway = provide(
+    project_unit_query_gateway = provide(
         source=SqlAclhemyProjectUnitQueryGateway, provides=ProjectUnitQueryGateway
+    )
+    project_unit_command_gateway = provide(
+        source=SqlAclhemyProjectUnitCommandGateway, provides=ProjectUnitCommandGateway
     )
     project_unit_mapper = provide(ProjectUnitNodeMapper)
 
@@ -241,3 +253,6 @@ class ApplicationProvider(Provider):
     list_access_lists_composition = provide(ListProjectAccessListsComposition)
     delete_access_list_usecase = provide(DeleteAccessListUsecase)
     delete_access_list_composition = provide(DeleteAccessListComposition)
+    assign_acl_dir_usecase = provide(AssignAccessListToDirectoryUsecase)
+    assign_acl_doc_usecase = provide(AssignAccessListToDocumentUsecase)
+    assign_acl_composition = provide(AssignAccessListComposition)

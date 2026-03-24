@@ -41,6 +41,7 @@ from presentation.handlers import (
     CreateAccessListHandler,
     ListProjectAccessListsHandler,
     DeleteAccessListHandler,
+    AssignAccessListHandler,
 )
 from presentation.http.middleware.extratctors.auth_info.bearer import (
     BearerAuthInfoExtractor,
@@ -108,6 +109,7 @@ class PresentationProvider(Provider):
     create_access_list_handler = provide(CreateAccessListHandler)
     list_access_lists_handler = provide(ListProjectAccessListsHandler)
     delete_access_list_handler = provide(DeleteAccessListHandler)
+    assign_access_list_handler = provide(AssignAccessListHandler)
 
     @provide
     def provide_list_dir_content(
