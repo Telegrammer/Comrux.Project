@@ -21,3 +21,4 @@ from .get_current_user import GetCurrentUserHandler
 from .create_access_list import CreateAccessListHandler
 from .list_project_access_lists import ListProjectAccessListsHandler
 from .delete_access_list import DeleteAccessListHandler
+from .assign_access_list import AssignAccessListHandler

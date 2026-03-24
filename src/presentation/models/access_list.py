@@ -29,6 +29,10 @@ class AccessListCreate(BaseModel):
     rules: list[AccessRuleCreate]
 
 
+class AccessListAssign(BaseModel):
+    access_list_id: UUID4 | None
+
+
 class AccessListCreated(BaseModel):
     id_: UUID4
     created_by: UUID4

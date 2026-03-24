@@ -4,7 +4,7 @@ from domain.enums import ProjectRole, ProjectUnitAction
 from domain.entities.user import UserId
 from domain.value_objects import Name
 from domain.entities.access_list import (
-    AccessRuleTargetVisior,
+    AccessRuleTargetVisitor,
     AccessRuleUserTarget,
     AccessRuleRoleTarget,
 )
@@ -13,7 +13,7 @@ from domain.entities.access_list import (
 from presentation.models.access_list import UserAccessRule, RoleAccessRule
 
 
-class AccessListsPresenter(AccessRuleTargetVisior):
+class AccessListsPresenter(AccessRuleTargetVisitor):
 
     def __init__(self, user_names: dict[UserId, Name]):
         self._names = user_names

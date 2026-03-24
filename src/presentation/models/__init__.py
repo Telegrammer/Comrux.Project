@@ -25,4 +25,10 @@ from .directory import (
 )
 from .document import DocumentCreated, DocumentCreate, DocumentRead
 from .content_ticket import ContentTicketCreated
-from .access_list import AccessListCreate, AccessListCreated, AccessRule, AccessListRead
+from .access_list import (
+    AccessListAssign,
+    AccessListCreate,
+    AccessListCreated,
+    AccessRule,
+    AccessListRead,
+)
