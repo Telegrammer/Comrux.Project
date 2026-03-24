@@ -32,7 +32,6 @@ class DeleteDocumentRequest:
 
 
 # TODO: add task gateway for content deletion
-# TODO: rethink about ProjectUnitContextSerivce
 class DeleteDocumentUsecase:
 
     def __init__(
@@ -58,6 +57,6 @@ class DeleteDocumentUsecase:
                 subject=context.current_user, target=context.pinned_project
             ),
         )
-        
+
         await self._document_commands.delete(context.found_document.id_)
         return "Document deleted"

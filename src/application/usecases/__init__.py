@@ -104,3 +104,8 @@ from .delete_access_list import (
     DeleteAccessListRequest,
     DeleteAccessListUsecase,
 )
+from .assign_access_list import (
+    AssignAccessListRequest,
+    AssignAccessListToDirectoryUsecase,
+    AssignAccessListToDocumentUsecase,
+)

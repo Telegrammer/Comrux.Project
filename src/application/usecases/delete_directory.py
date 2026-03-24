@@ -1,5 +1,8 @@
 from dataclasses import dataclass
-from domain import Directory, ProjectId, User, Project, DirectoryId
+from typing import Sequence
+from domain import Directory, ProjectId, User, Project, DirectoryId, ProjectUnitId
+from domain.entities.access_list import ResolvedUnitPermissions
+from domain.enums import ProjectUnitAction
 
 
 from domain import DirectoryService
@@ -8,7 +11,12 @@ from application.ports import (
     DirectoryCommandGateway,
     DirectoryQueryGateway,
 )
-from application.services import CurrentUserService
+from application.services import (
+    CurrentUserService,
+    DirectoryManageContext,
+    DirectoryManageContextService,
+    ProjectUnitPermissionService,
+)
 from application.exceptions import (
     DirectoryNotInProjectError,
     DirectoryNotFoundError,
@@ -42,44 +50,40 @@ class DeleteDirectoryUsecase:
 
     def __init__(
         self,
-        current_user: CurrentUserService,
-        project_gateway: ProjectQueryGateway,
-        directory_queries: DirectoryQueryGateway,
+        context_service: DirectoryManageContextService,
+        permission_service: ProjectUnitPermissionService,
         directory_commands: DirectoryCommandGateway,
         directory_service: DirectoryService,
     ):
-        self._current_user: CurrentUserService = current_user
-        self._project_gateway: ProjectQueryGateway = project_gateway
-        self._directory_queries: DirectoryQueryGateway = directory_queries
+        self._context_service = context_service
+        self._permission_service = permission_service
         self._directory_commands: DirectoryCommandGateway = directory_commands
         self._directory_service: DirectoryService = directory_service
 
     async def __call__(self, request: DeleteDirectoryRequest) -> str:
 
-        current_user: User = await self._current_user()
-        found_project: Project = await self._project_gateway.by_id(
-            request.project_id.value
-        )
-
-        authorize(
-            CanManageProjectContent(),
-            context=ProjectContentManagmentContext(
-                subject=current_user, target=found_project
-            ),
-        )
-
         try:
-            found_directory: Directory = await self._directory_queries.by_id(
-                request.directory_id.value
+            context = await self._context_service(
+                request.project_id.value, request.directory_id.value
             )
         except DirectoryNotFoundError:
             return "Directory is already deleted or never been in system"
 
-        if found_directory.project.value != found_project.id_:
-            raise DirectoryNotInProjectError("Given directory is not in given project")
-
-        if self._directory_service.is_root(found_directory):
+        if self._directory_service.is_root(context.found_directory):
             raise AccessDeniedError("Cannot delete root directory")
 
-        await self._directory_commands.delete(found_directory.id_)
+        permissions: ResolvedUnitPermissions = await self._permission_service(
+            context.current_user,
+            context.pinned_project,
+            ProjectUnitId(context.found_directory.parent.value),
+        )
+
+        if ProjectUnitAction.WRITE in permissions.denied:
+            raise AccessDeniedError(
+                "Delete operation is restricted for parent directory"
+            )
+
+        deleted_units: Sequence[ProjectUnitId] | None = (
+            await self._directory_commands.delete(context.found_directory.id_)
+        )
         return "Dirctory deleted"
