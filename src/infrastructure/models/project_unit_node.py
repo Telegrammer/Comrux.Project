@@ -35,6 +35,9 @@ class ProjectUnitNode(Base):
         nullable=True,
         index=True,
     )
+    access_list_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("access_lists.id_", ondelete="SET NULL")
+    )
 
     parent: Mapped[Optional["ProjectUnitNode"]] = relationship(remote_side=[id_])
     project: Mapped["Project"] = relationship(back_populates="units")

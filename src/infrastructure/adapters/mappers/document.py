@@ -3,7 +3,14 @@ from datetime import datetime
 from domain.enums import ProjectUnitType
 from domain.value_objects import FileName, PassedDatetime
 from domain.ports import ProjectUnitVisitor
-from domain.entities import Document, DocumentId, DirectoryId, UserId, ProjectId
+from domain.entities import (
+    Document,
+    DocumentId,
+    DirectoryId,
+    UserId,
+    ProjectId,
+    AccessListId,
+)
 from domain.entities.document import ContentId
 from application.ports.mappers import DocumentMapper, MappingError
 from application.ports import Clock
@@ -31,6 +38,9 @@ class SqlAlchemyDocumentMapper(DocumentMapper[ProjectUnitNode]):
             created_at=PassedDatetime(dto.created_at, now),
             parent=DirectoryId(dto.parent_id.__str__()),
             content_ref=ContentId(dto.attributes.get("content_ref")),
+            access_list=(
+                AccessListId(str(dto.access_list_id)) if dto.access_list_id else None
+            ),
         )
 
     def to_dto(self, entity: Document, old_dto: ProjectUnitNode = None):

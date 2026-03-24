@@ -1,5 +1,5 @@
 from typing import Sequence
-from sqlalchemy import select, Select
+from sqlalchemy import select, Select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain import DirectoryId, ProjectUnit
@@ -10,6 +10,25 @@ from application.ports.gateways import ProjectUnitListParams
 from infrastructure.adapters.mappers import ProjectUnitNodeMapper
 from infrastructure.models import ProjectUnitNode
 from .query_builder import SQLAlchemyQueryBuilder
+
+
+class SqlAclhemyProjectUnitCommandGateway:
+
+    def __init__(self, mapper: ProjectUnitNodeMapper, session: AsyncSession):
+        self._mapper = mapper
+        self._session = session
+
+    async def update(self, unit: ProjectUnit) -> None:
+        stmt = (
+            sql_update(ProjectUnitNode)
+            .where(ProjectUnitNode.id_ == unit.id_)
+            .values(
+                name=unit.name.value,
+                access_list_id=unit.access_list,
+                created_by=unit.created_by.value,
+            )
+        )
+        await self._session.execute(stmt)
 
 
 class SqlAclhemyProjectUnitQueryGateway:

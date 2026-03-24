@@ -9,7 +9,7 @@ from sqlalchemy.orm import InstrumentedAttribute
 from domain.entities.access_list import (
     AccessRuleUserTarget,
     AccessRuleRoleTarget,
-    AccessRuleTargetVisior,
+    AccessRuleTargetVisitor,
 )
 from domain.enums import ProjectRole
 
@@ -21,7 +21,7 @@ from infrastructure.models import (
 )
 
 
-class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisior):
+class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisitor):
 
     def __init__(self) -> None:
         self._roles_ids: dict[ProjectRole, int] = {}

@@ -16,7 +16,10 @@ from .document import (
 )
 from .task import SqlAlchemyTaskCommandGateway, SqlAlchemyTaskQueryGateway
 from .query_builder import SQLAlchemyQueryBuilder
-from .project_unit import SqlAclhemyProjectUnitQueryGateway
+from .project_unit import (
+    SqlAclhemyProjectUnitQueryGateway,
+    SqlAclhemyProjectUnitCommandGateway,
+)
 from .access_list import (
     SqlAlchemyAccessListCommandGateway,
     SqlAlchemyAccessListQueryGateway,

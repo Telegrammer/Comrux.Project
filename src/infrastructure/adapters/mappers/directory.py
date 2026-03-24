@@ -3,7 +3,7 @@ from datetime import datetime
 from domain.enums import ProjectUnitType
 from domain.value_objects import FileName, PassedDatetime
 from domain.ports import ProjectUnitVisitor
-from domain.entities import Directory, DirectoryId, UserId, ProjectId
+from domain.entities import Directory, DirectoryId, UserId, ProjectId, AccessListId
 from application.exceptions import DirectoryNotFoundError
 from application.ports.mappers import DirectoryMapper
 from application.ports import Clock
@@ -31,6 +31,9 @@ class SqlAlchemyDirectoryMapper(DirectoryMapper[ProjectUnitNode]):
             created_by=UserId(str(dto.created_by)) if dto.created_by else None,
             created_at=PassedDatetime(dto.created_at, now),
             parent=DirectoryId(str(dto.parent_id)) if dto.parent_id else None,
+            access_list=(
+                AccessListId(str(dto.access_list_id)) if dto.access_list_id else None
+            ),
         )
 
     def to_dto(self, entity: Directory, old_dto: ProjectUnitNode = None):
