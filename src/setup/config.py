@@ -66,6 +66,12 @@ class DatabaseConfig(BaseModel):
     }
 
 
+class CollaborationConfig(BaseModel):
+    base_url: str = "http://localhost:8001"
+    content_path: str = "/group/{group_id}/content/{content_id}"
+    timeout_seconds: float = 5.0
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env_app",
@@ -77,6 +83,7 @@ class Settings(BaseSettings):
     db: DatabaseConfig
     transport: TransportConfig
     auth: JwtAuthConfig
+    collaboration: CollaborationConfig = CollaborationConfig()
 
 
 settings = Settings()

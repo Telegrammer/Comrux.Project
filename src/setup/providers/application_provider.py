@@ -2,13 +2,9 @@ __all__ = ["ApplicationProvider"]
 
 
 from dishka import Provider, provide, Scope, from_context
-from functools import partial
-from typing import Callable
 from setup.config import Settings
 
-from domain import User, UserId
-from domain.value_objects import Name, BirthDate
-from dateutil.relativedelta import relativedelta
+from domain import UserId
 
 from application.compositions import (
     CreateProjectComposition,
@@ -34,6 +30,7 @@ from application.compositions import (
     ListProjectAccessListsComposition,
     DeleteAccessListComposition,
     AssignAccessListComposition,
+    SetProjectAccessComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -53,6 +50,7 @@ from application.usecases import (
     DeleteDocumentUsecase,
     DeleteDirectoryUsecase,
     CreateContentTicketUsecase,
+    GetDocumentContentUsecase,
     GetUserUsecase,
     ListUsersUsecase,
     GetCurrentUserUsecase,
@@ -61,11 +59,13 @@ from application.usecases import (
     DeleteAccessListUsecase,
     AssignAccessListToDirectoryUsecase,
     AssignAccessListToDocumentUsecase,
+    SetProjectAccessUsecase,
 )
 from application.services import (
     CurrentUserService,
     DirectoryManageContextService,
     DocumentManageContextService,
+    DocumentReadContextService,
     ProjectUnitPermissionService,
     AssignAccessListService,
 )
@@ -74,6 +74,7 @@ from application.ports.mappers import (
     TaskMapper,
 )
 from application.ports.gateways import (
+    ContentQueryGateway,
     ProjectCommandGateway,
     ProjectQueryGateway,
     UserCommandGateway,
@@ -103,6 +104,7 @@ from infrastructure.adapters.mappers import (
     SqlAlchemyAccessListMapper,
 )
 from infrastructure.adapters.gateways import (
+    HttpContentQueryGateway,
     SqlAlchemyProjectCommandGateway,
     SqlAlchemyProjectQueryGateway,
     SqlAlchemyUserCommandGateway,
@@ -123,7 +125,7 @@ from infrastructure.adapters.gateways import (
 class ApplicationProvider(Provider):
     scope = Scope.REQUEST
     settings = from_context(Settings, scope=Scope.APP)
-    user_id = from_context(UserId)
+    user_id = from_context(UserId | None)
 
     clock = provide(source=TimestampClock, provides=Clock)
 
@@ -149,11 +151,12 @@ class ApplicationProvider(Provider):
 
     @provide
     def provide_current_user_service(
-        self, user_id: UserId, user_gateway: UserQueryGateway
+        self, user_id: UserId | None, user_gateway: UserQueryGateway
     ) -> CurrentUserService:
         return CurrentUserService(user_id=user_id, gateway=user_gateway)
 
     document_manage_serivce = provide(DocumentManageContextService)
+    document_read_service = provide(DocumentReadContextService)
     directory_manage_serivce = provide(DirectoryManageContextService)
     project_unit_permission_service = provide(ProjectUnitPermissionService)
     access_list_assign_service = provide(AssignAccessListService)
@@ -201,6 +204,9 @@ class ApplicationProvider(Provider):
     document_query_gateway = provide(
         source=SqlAlchemyDocumentQueryGateway, provides=DocumentQueryGateway
     )
+    content_query_gateway = provide(
+        source=HttpContentQueryGateway, provides=ContentQueryGateway
+    )
 
     access_list_mapper = provide(SqlAlchemyAccessListMapper)
     access_list_command_gateway = provide(
@@ -241,6 +247,7 @@ class ApplicationProvider(Provider):
     delete_directory_usecase = provide(DeleteDirectoryUsecase)
     delete_directory_composition = provide(DeleteDirectoryComposition)
     create_ticket_usecase = provide(CreateContentTicketUsecase)
+    get_document_content_usecase = provide(GetDocumentContentUsecase)
     create_ticket_composition = provide(CreateContentTicketComposition)
     get_user_usecase = provide(GetUserUsecase)
     get_user_composition = provide(GetUserCompostion)
@@ -256,3 +263,5 @@ class ApplicationProvider(Provider):
     assign_acl_dir_usecase = provide(AssignAccessListToDirectoryUsecase)
     assign_acl_doc_usecase = provide(AssignAccessListToDocumentUsecase)
     assign_acl_composition = provide(AssignAccessListComposition)
+    set_project_privateness_usecase = provide(SetProjectAccessUsecase)
+    set_project_access_composition = provide(SetProjectAccessComposition)

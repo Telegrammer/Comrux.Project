@@ -1,9 +1,7 @@
 __all__ = ["PresentationProvider"]
 
 
-from datetime import timedelta
-from typing import Type
-from dishka import Provider, provide, Scope, from_context, AsyncContainer
+from dishka import Provider, provide, Scope, from_context
 from setup.config import Settings
 
 from application.compositions import ListDirectoryContentCompostion
@@ -16,7 +14,6 @@ from presentation.presenters import (
     JwtContentTicketPresenter,
     PydanticProjectUnitVisitor,
 )
-from presentation.models import AuthInfo
 from presentation.handlers import (
     CreateProjectHandler,
     ListProjectsHandler,
@@ -35,6 +32,7 @@ from presentation.handlers import (
     DeleteDocumentHandler,
     DeleteDirectoryHandler,
     CreateContentTicketHandler,
+    GetDocumentContentHandler,
     GetUserHandler,
     ListUsersHandler,
     GetCurrentUserHandler,
@@ -42,6 +40,7 @@ from presentation.handlers import (
     ListProjectAccessListsHandler,
     DeleteAccessListHandler,
     AssignAccessListHandler,
+    SetProjectAccessHandler,
 )
 from presentation.http.middleware.extratctors.auth_info.bearer import (
     BearerAuthInfoExtractor,
@@ -103,6 +102,7 @@ class PresentationProvider(Provider):
     delete_document_handler = provide(DeleteDocumentHandler)
     delete_directory_handler = provide(DeleteDirectoryHandler)
     create_ticket_handler = provide(CreateContentTicketHandler)
+    get_document_content_handler = provide(GetDocumentContentHandler)
     get_user_handler = provide(GetUserHandler)
     list_users_handler = provide(ListUsersHandler)
     get_current_user_handler = provide(GetCurrentUserHandler)
@@ -110,6 +110,7 @@ class PresentationProvider(Provider):
     list_access_lists_handler = provide(ListProjectAccessListsHandler)
     delete_access_list_handler = provide(DeleteAccessListHandler)
     assign_access_list_handler = provide(AssignAccessListHandler)
+    set_project_access_handler = provide(SetProjectAccessHandler)
 
     @provide
     def provide_list_dir_content(
