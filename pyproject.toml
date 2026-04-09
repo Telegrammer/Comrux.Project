@@ -21,3 +21,4 @@ alembic = "^1.17.1"
 python-dateutil = "^2.9.0.post0"
 pytest = "^9.0.1"
 pyjwt = {extras = ["crypto"], version = "^2.11.0"}
+httpx = "^0.28.1"
