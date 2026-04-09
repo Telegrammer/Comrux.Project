@@ -6,18 +6,16 @@ from ..enums import ProjectRole, ProjectUnitAction
 from ..value_objects import Uuid4, FileName
 from .base import AggregationRoot
 from .user import UserId
-from .project import ProjectId, Project
+from .project import ProjectId
 
 
 class AccessRuleTargetVisitor(Protocol):
-
     def visit_user[T](self, target: "AccessRuleUserTarget") -> T: ...
     def visit_role[T](self, target: "AccessRuleRoleTarget") -> T: ...
 
 
 @dataclass(frozen=True)
 class AccessRuleTarget[valT](ABC):
-
     @abstractmethod
     def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
         raise NotImplementedError
@@ -25,11 +23,9 @@ class AccessRuleTarget[valT](ABC):
 
 @dataclass(init=False, frozen=True, eq=False)
 class AccessRuleUserTarget(AccessRuleTarget[UserId]):
-
-    user_id: UserId
-
     def __init__(self, user_id: str):
-        self.user_id = UserId(user_id)
+        object.__setattr__(self, "user_id", UserId(user_id))
+        super().__init__()
 
     def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
         return visitor.visit_user(self)
@@ -43,7 +39,6 @@ class AccessRuleUserTarget(AccessRuleTarget[UserId]):
 
 @dataclass(frozen=True)
 class AccessRuleRoleTarget(AccessRuleTarget):
-
     role: ProjectRole
 
     def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
@@ -71,8 +66,8 @@ class AccessRule:
 
 @dataclass
 class ResolvedUnitPermissions:
-    allowed: dict[UserId, ProjectUnitAction] = field(default_factory=set)
-    denied: dict[UserId, ProjectUnitAction] = field(default_factory=set)
+    allowed: set[ProjectUnitAction] = field(default_factory=set)
+    denied: set[ProjectUnitAction] = field(default_factory=set)
 
 
 class AccessListId(Uuid4): ...
@@ -80,7 +75,6 @@ class AccessListId(Uuid4): ...
 
 @dataclass
 class AccessList(AggregationRoot[AccessListId]):
-
     name: FileName
     project: ProjectId
     owner: UserId | None

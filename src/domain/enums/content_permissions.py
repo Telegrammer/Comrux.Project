@@ -7,9 +7,3 @@ class ProjectUnitAction(StrEnum):
     WRITE = "w"
     EXECUTE = "x"
     SECURE = "s"
-
-
-class ContentPermission(StrEnum):
-
-    VIEW = "view"
-    EDIT = "edit"

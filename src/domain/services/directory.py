@@ -8,7 +8,6 @@ from domain.enums import ProjectRole
 
 
 class DirectoryService:
-
     def __init__(self, id_generator: ProjectUnitIdGenerator):
         self._id_generator: ProjectUnitIdGenerator = id_generator
 
@@ -37,6 +36,7 @@ class DirectoryService:
             project=ProjectId(project.id_),
             created_by=creator,
             created_at=PassedDatetime(now, now),
+            access_list=None,
         )
 
     def create_root_directory(
@@ -87,3 +87,6 @@ class DirectoryService:
             created_by=directory.created_by,
             created_at=PassedDatetime(directory.created_at.value, now),
         )
+
+    def belongs_to(self, directory: Directory, project: Project) -> bool:
+        return directory.project.value == project.id_

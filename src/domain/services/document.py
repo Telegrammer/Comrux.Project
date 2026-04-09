@@ -1,13 +1,12 @@
 from datetime import datetime
 
 from domain.ports import ProjectUnitIdGenerator, ContentIdGenerator
-from domain.entities import Project, UserId, Document, ProjectId, Directory, DirectoryId
+from domain.entities import Project, UserId, Document, Directory, DirectoryId
 from domain.value_objects import FileName, PassedDatetime
 from domain.exceptions import MemberNotFoundError, DomainFieldError
 
 
 class DocumentService:
-
     def __init__(
         self,
         id_generator: ProjectUnitIdGenerator,
@@ -39,6 +38,7 @@ class DocumentService:
             name=name,
             parent=DirectoryId(parent.id_),
             project=project.id_,
+            access_list=None,
             content_ref=self._content_id_generator(),
             created_by=creator,
             created_at=PassedDatetime(now, now),

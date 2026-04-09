@@ -5,8 +5,8 @@ from .base import Entity
 from .user import UserId
 from .document import ContentId
 from ..value_objects import Uuid4, Name, PassedDatetime, FutureDatetime
-from ..enums import ContentPermission
 from ..exceptions import DomainFieldError
+from ..enums import ProjectUnitAction
 
 
 class ContentTicketId(Uuid4): ...
@@ -17,7 +17,7 @@ class ContentTicket(Entity[ContentTicketId]):
     username: Name
     user_id: UserId
     content_ref: ContentId
-    permissions: list[ContentPermission] = field(default_factory=[])
+    permissions: list[ProjectUnitAction] = field(default_factory=[])
     issued_at: PassedDatetime
     expire_at: FutureDatetime
 

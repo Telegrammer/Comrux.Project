@@ -1,8 +1,6 @@
-from dataclasses import dataclass, field
-
 from domain.ports.id_generators import AccessListIdGenerator
 from domain.value_objects import FileName
-from domain.enums import ProjectRole, ProjectUnitAction
+from domain.enums import ProjectRole
 from domain.exceptions import OwnerInAccessListError, AccessRuleMismatchError
 from domain.entities import (
     Project,
@@ -14,7 +12,6 @@ from domain.entities import (
 )
 from domain.entities.access_list import (
     AccessRuleTargetVisitor,
-    AccessRuleTarget,
     ResolvedUnitPermissions,
     AccessRuleRoleTarget,
     AccessRuleUserTarget,
@@ -22,7 +19,6 @@ from domain.entities.access_list import (
 
 
 class OwnerTargetDetectionVisitor(AccessRuleTargetVisitor):
-
     def __init__(self, project: Project):
         self._project = project
 
@@ -34,7 +30,6 @@ class OwnerTargetDetectionVisitor(AccessRuleTargetVisitor):
 
 
 class AccessRuleTargetAppliesVisitor(AccessRuleTargetVisitor):
-
     def __init__(self, project: Project, user_id: UserId):
         self._project = project
         self._user_id = user_id
@@ -47,7 +42,6 @@ class AccessRuleTargetAppliesVisitor(AccessRuleTargetVisitor):
 
 
 class AccessListService:
-
     def __init__(self, id_generator: AccessListIdGenerator):
         self._id_generator = id_generator
 
@@ -100,10 +94,9 @@ class AccessListService:
                 if not rule.target.accept(applies_visitor):
                     continue
 
-                if rule.is_allow:
+                if rule.is_allow and rule.action not in resolved.denied:
                     resolved.allowed.add(rule.action)
-                else:
+                if not rule.is_allow and rule.action not in resolved.allowed:
                     resolved.denied.add(rule.action)
 
-        resolved.allowed -= resolved.denied
         return resolved

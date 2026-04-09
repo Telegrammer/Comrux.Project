@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from domain.value_objects import Name, PassedDatetime, FutureDatetime
 from domain.entities import User, ContentTicket, UserId
 from domain.entities.document import ContentId
-from domain.enums import ContentPermission
+from domain.enums import ProjectUnitAction
 from domain.ports.id_generators import ContentIdGenerator
 from domain.policies import ContentTicketValidityPolicy
 
@@ -21,7 +21,7 @@ class ContentTicketService:
         self,
         user: User,
         now: datetime,
-        permissions: list[ContentPermission],
+        permissions: list[ProjectUnitAction],
         content_ref: ContentId,
     ) -> ContentTicket:
         return ContentTicket(

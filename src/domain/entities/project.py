@@ -23,3 +23,4 @@ class Project(AggregationRoot[ProjectId]):
     description: str = ""
     members: dict[UserId, ProjectRole] = field(default_factory=dict)
     created_at: PassedDatetime
+    is_private: bool = False
