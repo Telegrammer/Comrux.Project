@@ -12,5 +12,6 @@ from .permissions import (
     CanDeleteAccessList,
     AccessListManagmentContext,
     CanAssignAccessList,
+    CanChangePrivateness,
 )
 from .authorize import authorize

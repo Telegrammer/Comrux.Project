@@ -4,6 +4,7 @@ from abc import abstractmethod
 from typing import Protocol, Sequence
 
 from domain import DirectoryId, Directory
+from domain.entities.document import ContentId
 
 
 class DirectoryCommandGateway(Protocol):
@@ -17,7 +18,7 @@ class DirectoryCommandGateway(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(self, obj) -> None:
+    async def delete(self, directory_id: DirectoryId) -> Sequence[ContentId]:
         raise NotImplementedError
 
 

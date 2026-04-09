@@ -27,3 +27,5 @@ class FilterVisitor[T]:
     @abstractmethod
     def visit_or(self, param: OrFilter) -> T:
         raise NotImplementedError
+
+

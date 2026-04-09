@@ -7,6 +7,7 @@ from .gateways import (
     ProjectQueryGateway,
     UserCommandGateway,
     UserQueryGateway,
+    ContentQueryGateway,
     DirectoryQueryGateway,
     DocumentCommandGateway,
     DirectoryCommandGateway,
