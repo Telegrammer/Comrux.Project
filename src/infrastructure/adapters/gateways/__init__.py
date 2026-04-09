@@ -10,6 +10,7 @@ from .directory import (
     SqlAlchemyDirectoryCommandGateway,
     SqlAlchemyDirectoryQueryGateway,
 )
+from .content import HttpContentQueryGateway
 from .document import (
     SqlAlchemyDocumentCommandGateway,
     SqlAlchemyDocumentQueryGateway,

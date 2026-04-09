@@ -23,7 +23,6 @@ from infrastructure.adapters.access_rule_target_collector import (
 
 
 class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
-
     def __init__(self):
         self._user_names: dict[UserId, Name] = {}
 
@@ -34,9 +33,9 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
     @_target_to_domain.register
     def _(self, orm_target: OrmUserTarget) -> AccessRuleUserTarget:
 
-        user_id: UserId = UserId(str(orm_target.user_id))
-        self._user_names[user_id] = Name(orm_target.user.name)
-        return AccessRuleUserTarget(user_id)
+        value: str = str(orm_target.user_id)
+        self._user_names[UserId(value)] = Name(orm_target.user.name)
+        return AccessRuleUserTarget(value)
 
     @_target_to_domain.register
     def _(self, orm_target: OrmRoleTarget) -> AccessRuleRoleTarget:
@@ -86,8 +85,6 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
         self._user_names = {}
 
         for acl, owner in query_result:
-            if acl.rules != []:
-                print(acl.rules[0].target)
             access_lists.append(self.to_domain(acl))
             owners.append(Name(owner) if owner else None)
 

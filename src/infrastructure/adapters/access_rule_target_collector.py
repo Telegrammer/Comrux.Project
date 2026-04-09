@@ -22,7 +22,6 @@ from infrastructure.models import (
 
 
 class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisitor):
-
     def __init__(self) -> None:
         self._roles_ids: dict[ProjectRole, int] = {}
         self._seen_roles: set[ProjectRole] = set()
@@ -40,13 +39,13 @@ class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisitor):
 
     @resolve.register
     def _(self, target: AccessRuleUserTarget) -> int:
-        return self._users_ids[target.user_id.value]
+        return self._users_ids[UUID(target.user_id.value)]
 
     def visit_role(self, target: AccessRuleRoleTarget) -> None:
         self._seen_roles.add(target.role)
 
     def visit_user(self, target: AccessRuleUserTarget) -> None:
-        self._seen_users.add(target.user_id.value)
+        self._seen_users.add(UUID(target.user_id.value))
 
     @staticmethod
     async def _select_existing[valT, ormT: OrmRuleTarget[valT]](
@@ -78,9 +77,10 @@ class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisitor):
         value_column: InstrumentedAttribute[valT],
         values: list[valT],
     ) -> dict[valT, int]:
+        polymorphic_identity = str(model.__mapper__.polymorphic_identity)
         root_ids = await SqlAlchemyAccessRuleTargetCollector._insert_roots(
             session,
-            str(value_column.key),
+            polymorphic_identity,
             len(values),
         )
 
@@ -89,7 +89,7 @@ class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisitor):
             for root_id, value in zip(root_ids, values, strict=True)
         ]
 
-        await session.execute(insert(model), child_data)
+        await session.execute(insert(model.__table__), child_data)
 
         return {value: root_id for root_id, value in zip(root_ids, values, strict=True)}
 

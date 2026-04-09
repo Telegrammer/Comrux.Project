@@ -4,7 +4,6 @@ from sqlalchemy import select, delete as sql_delete, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, aliased
 
-from domain.value_objects import Name
 from domain.entities import AccessList, ProjectId, AccessListId, ProjectUnitId
 from application.models import ProjectAccessListsRead
 from application.ports.gateways.query_params import AccessListsParams
@@ -29,9 +28,6 @@ from infrastructure.adapters.access_rule_target_collector import (
     SqlAlchemyAccessRuleTargetCollector,
 )
 from infrastructure.adapters.gateways import SQLAlchemyQueryBuilder
-
-
-import logging
 
 
 class SqlAlchemyAccessListCommandGateway:

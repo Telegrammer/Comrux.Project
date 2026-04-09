@@ -1,11 +1,8 @@
-__all__ = ["SqlAlchemyProjectCommandGateway", "SqlAlchemyProjectQueryGateway"]
-
-
 from typing import Sequence
 from functools import singledispatchmethod
 
 
-from sqlalchemy import select, Select, delete as sql_delete, Delete, or_
+from sqlalchemy import select, Select, delete as sql_delete, Delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -29,7 +26,6 @@ from .query_builder import SQLAlchemyQueryBuilder
 
 
 class SqlAlchemyProjectCommandGateway:
-
     def __init__(self, session: AsyncSession, mapper: SqlAlchemyProjectMapper):
         self._session: AsyncSession = session
         self._mapper: SqlAlchemyProjectMapper = mapper
@@ -69,7 +65,6 @@ class SqlAlchemyProjectCommandGateway:
 
 
 class SqlAlchemyProjectQueryGateway:
-
     def __init__(
         self,
         session: AsyncSession,

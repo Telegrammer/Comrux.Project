@@ -14,6 +14,7 @@ class Project(Base):
     description: Mapped[str] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(nullable=False)
     updated_at: Mapped[datetime] = mapped_column(nullable=True)
+    is_private: Mapped[bool] = mapped_column(nullable=False)
     members: Mapped[list[ProjectMembership]] = relationship(
         back_populates="project",
         cascade="all, delete-orphan",
