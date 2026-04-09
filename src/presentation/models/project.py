@@ -34,7 +34,6 @@ class ProjectUpdate(ProjectCreate): ...
 
 
 class ProjectMemberAdd(BaseModel):
-
     user: UUID4
 
 
@@ -77,3 +76,7 @@ class ProjectMemberRoleReassigned(BaseModel):
     member: str
     old_role: Literal[ProjectRole.LEAD, ProjectRole.MEMBER]
     project: str
+
+
+class ProjectSetAccess(BaseModel):
+    is_private: bool

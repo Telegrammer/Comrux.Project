@@ -30,10 +30,9 @@ def create_assign_directory_acl_router() -> APIRouter:
     router = ErrorAwareRouter()
 
     @router.patch(
-        "/{project_id}/dirs/{directory_id}/acl",
+        "/{project_id}/dir/{directory_id}/acl",
         error_map={
             DomainFieldError: status.HTTP_400_BAD_REQUEST,
-            ProjectNotFoundError: status.HTTP_404_NOT_FOUND,
             ExpiredAccessKeyError: status.HTTP_401_UNAUTHORIZED,
             CurrentUserNotFoundError: status.HTTP_401_UNAUTHORIZED,
             AccessDeniedError: status.HTTP_403_FORBIDDEN,
@@ -59,4 +58,3 @@ def create_assign_directory_acl_router() -> APIRouter:
         )
 
     return router
-

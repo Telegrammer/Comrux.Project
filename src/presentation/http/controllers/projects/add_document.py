@@ -32,7 +32,7 @@ def create_add_document_router() -> APIRouter:
     router = ErrorAwareRouter()
 
     @router.post(
-        "/{project_id}/docs",
+        "/{project_id}/doc",
         error_map={
             MappingError: status.HTTP_500_INTERNAL_SERVER_ERROR,
             DomainFieldError: status.HTTP_400_BAD_REQUEST,

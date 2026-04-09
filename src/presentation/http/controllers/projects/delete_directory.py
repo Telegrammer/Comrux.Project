@@ -30,7 +30,7 @@ def create_delete_directory_router() -> APIRouter:
     router = ErrorAwareRouter()
 
     @router.delete(
-        "/{project_id}/dirs/{directory_id}/",
+        "/{project_id}/dir/{directory_id}/",
         error_map={
             DomainFieldError: status.HTTP_400_BAD_REQUEST,
             ProjectNotFoundError: status.HTTP_404_NOT_FOUND,

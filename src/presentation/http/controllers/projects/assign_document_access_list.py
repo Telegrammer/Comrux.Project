@@ -30,7 +30,7 @@ def create_assign_document_acl_router() -> APIRouter:
     router = ErrorAwareRouter()
 
     @router.patch(
-        "/{project_id}/docs/{document_id}/acl",
+        "/{project_id}/doc/{document_id}/acl",
         error_map={
             DomainFieldError: status.HTTP_400_BAD_REQUEST,
             ProjectNotFoundError: status.HTTP_404_NOT_FOUND,

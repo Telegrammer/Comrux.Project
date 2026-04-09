@@ -13,6 +13,7 @@ from .project import (
     ProjectOwnerGranted,
     ProjectSetMemberRole,
     ProjectMemberRoleReassigned,
+    ProjectSetAccess,
 )
 from .user import UserCreate, UserCreated
 from .auth import AuthInfo

@@ -15,6 +15,7 @@ from .list_directory_content import ListDirectoryContentHandler
 from .delete_document import DeleteDocumentHandler
 from .delete_directory import DeleteDirectoryHandler
 from .create_content_ticket import CreateContentTicketHandler
+from .get_document_content import GetDocumentContentHandler
 from .get_user import GetUserHandler
 from .list_users import ListUsersHandler
 from .get_current_user import GetCurrentUserHandler
@@ -22,3 +23,4 @@ from .create_access_list import CreateAccessListHandler
 from .list_project_access_lists import ListProjectAccessListsHandler
 from .delete_access_list import DeleteAccessListHandler
 from .assign_access_list import AssignAccessListHandler
+from .set_project_access import SetProjectAccessHandler

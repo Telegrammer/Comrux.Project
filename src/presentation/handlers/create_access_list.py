@@ -17,7 +17,6 @@ from presentation.models import AccessListCreate, AccessListCreated
 
 
 class CreateAccessListHandler:
-
     def __init__(self, usecase: CreateAccessListComposition):
         self._usecase = usecase
 
@@ -36,7 +35,7 @@ class CreateAccessListHandler:
             target: AccessRuleTarget = (
                 AccessRuleRoleTarget(rule.target)
                 if rule.target in ProjectRole
-                else AccessRuleUserTarget(rule.target)
+                else AccessRuleUserTarget(str(rule.target))
             )
             rules.append(AccessRule(target, rule.action, is_allow))
 

@@ -1,9 +1,8 @@
-__all__ = ["create_list_members_router"]
-
 from typing import Annotated
+from fastapi.security import HTTPAuthorizationCredentials
 from starlette import status
 from pydantic import UUID4
-from fastapi import APIRouter, Query, Path
+from fastapi import APIRouter, Depends, Query, Path
 from fastapi_error_map import ErrorAwareRouter
 from dishka.integrations.fastapi import FromDishka, inject
 
@@ -21,6 +20,7 @@ from presentation.handlers import ListDirectoryContentHandler
 from presentation.models import DocumentRead, DirectoryRead
 from presentation.http.controllers.dependencies import (
     service_unavailable_rule,
+    optional_bearer,
     log_info,
 )
 
@@ -29,7 +29,7 @@ def create_list_directory_content_router() -> APIRouter:
     router = ErrorAwareRouter()
 
     @router.get(
-        "/{project_id}/dirs/{directory_id}/content",
+        "/{project_id}/dir/{directory_id}/content",
         error_map={
             MappingError: status.HTTP_500_INTERNAL_SERVER_ERROR,
             DomainFieldError: status.HTTP_400_BAD_REQUEST,
@@ -47,6 +47,7 @@ def create_list_directory_content_router() -> APIRouter:
     async def list_directory_content(
         project_id: Annotated[UUID4, Path()],
         directory_id: Annotated[UUID4, Path()],
+        token: Annotated[HTTPAuthorizationCredentials | None, Depends(optional_bearer)],
         handler: FromDishka[ListDirectoryContentHandler],
         offset: int = 0,
         limit: int = 10,

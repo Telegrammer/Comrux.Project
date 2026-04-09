@@ -6,7 +6,6 @@ from presentation.models import ContentTicketCreated
 
 
 class CreateContentTicketHandler:
-
     def __init__(
         self, usecase: CreateContentTicketComposition, presenter: ContentTicketPresenter
     ):
