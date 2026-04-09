@@ -1,0 +1,32 @@
+import logging
+
+
+from application.ports import UnitOfWork
+from application.exceptions.handlers import retry_on_conflict
+
+logger = logging.getLogger(__name__)
+
+
+import logging
+
+
+from application.usecases import SetProjectAccessRequest, SetProjectAccessUsecase
+from application.ports import UnitOfWork
+from application.exceptions.handlers import retry_on_conflict
+
+logger = logging.getLogger(__name__)
+
+
+class SetProjectAccessComposition:
+
+    def __init__(self, usecase: SetProjectAccessUsecase, unit_of_work: UnitOfWork):
+        self._usecase = usecase
+        self._unit_of_work = unit_of_work
+
+    @retry_on_conflict()
+    async def __call__(self, request: SetProjectAccessRequest) -> None:
+
+        async with self._unit_of_work:
+            logger.info("Project %s update start", request.project_id.value)
+            await self._usecase(request)
+        logger.info("Project's %s access set", request.project_id.value)

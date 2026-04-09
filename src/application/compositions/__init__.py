@@ -22,3 +22,4 @@ from .create_access_list import CreateAccessListComposition
 from .list_project_access_lists import ListProjectAccessListsComposition
 from .delete_access_list import DeleteAccessListComposition
 from .assign_access_list import AssignAccessListComposition
+from .set_project_access import SetProjectAccessComposition
