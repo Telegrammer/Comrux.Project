@@ -3,27 +3,28 @@ from typing import TypedDict
 from datetime import datetime
 from domain.entities import (
     ProjectId,
+    ProjectUnitId,
     DocumentId,
     ContentTicket,
     ContentTicketId,
     UserId,
 )
+from domain.entities.access_list import ResolvedUnitPermissions
 from domain.entities.document import ContentId
 from domain.services import ContentTicketService
 from domain.value_objects import Name, PassedDatetime, FutureDatetime
-from domain.enums import ContentPermission
-from application.ports import ProjectQueryGateway, DocumentQueryGateway, Clock
-from application.services import DocumentManageContext, DocumentManageContextService
-from application.ports.authorization import (
-    CanManageProjectContent,
-    authorize,
-    ProjectContentManagmentContext,
+from domain.enums import ProjectUnitAction
+from application.ports import Clock
+from application.services import (
+    DocumentManageContext,
+    DocumentManageContextService,
+    ProjectUnitPermissionService,
 )
+from application.exceptions import AccessDeniedError
 
 
 @dataclass
 class CreateContentTicketRequest:
-
     project_id: ProjectId
     document_id: DocumentId
 
@@ -38,13 +39,12 @@ class CreateContentTicketRequest:
 
 
 class CreateContentTicketResponse(TypedDict):
-
     ticket_id: ContentTicketId
     username: Name
     user_id: UserId
     project_id: ProjectId
     content_ref: ContentId
-    permissions: list[ContentPermission]
+    permissions: list[ProjectUnitAction]
     issued_at: PassedDatetime
     expire_at: FutureDatetime
 
@@ -65,15 +65,16 @@ class CreateContentTicketResponse(TypedDict):
 
 
 class CreateContentTicketUsecase:
-
     def __init__(
         self,
         clock: Clock,
         context_service: DocumentManageContextService,
+        permission_service: ProjectUnitPermissionService,
         content_ticket_service: ContentTicketService,
     ):
         self._clock = clock
         self._context_serivce = context_service
+        self._permission_service = permission_service
         self._content_ticket_service = content_ticket_service
 
     async def __call__(self, request: CreateContentTicketRequest):
@@ -83,23 +84,22 @@ class CreateContentTicketUsecase:
         context: DocumentManageContext = await self._context_serivce(
             request.project_id, request.document_id
         )
-        authorize(
-            CanManageProjectContent(),
-            context=ProjectContentManagmentContext(
-                subject=context.current_user, target=context.pinned_project
-            ),
+
+        permissions: ResolvedUnitPermissions = await self._permission_service(
+            context.current_user,
+            context.pinned_project,
+            ProjectUnitId(context.found_document.id_),
         )
 
-        # TODO: MOVE CONSTANS IN OTHER SERVICE AFTER ACL DEFENITION
-        permissions: list[ContentPermission] = [
-            ContentPermission.VIEW,
-            ContentPermission.EDIT,
-        ]
+        if ProjectUnitAction.READ in permissions.denied:
+            raise AccessDeniedError(
+                "Cannot enter to document edit because of acl's restrictions"
+            )
 
         content_ticket: ContentTicket = self._content_ticket_service.create_ticket(
             user=context.current_user,
             now=now,
-            permissions=permissions,
+            permissions=list(permissions.allowed),
             content_ref=context.found_document.content_ref,
         )
 

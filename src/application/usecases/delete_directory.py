@@ -1,37 +1,22 @@
 from dataclasses import dataclass
 from typing import Sequence
-from domain import Directory, ProjectId, User, Project, DirectoryId, ProjectUnitId
+
+from domain import DirectoryId, ProjectId, ProjectUnitId
+from domain import DirectoryService
 from domain.entities.access_list import ResolvedUnitPermissions
+from domain.entities.document import ContentId
 from domain.enums import ProjectUnitAction
 
-
-from domain import DirectoryService
-from application.ports import (
-    ProjectQueryGateway,
-    DirectoryCommandGateway,
-    DirectoryQueryGateway,
-)
+from application.exceptions import AccessDeniedError, DirectoryNotFoundError
+from application.ports import DirectoryCommandGateway
 from application.services import (
-    CurrentUserService,
-    DirectoryManageContext,
     DirectoryManageContextService,
     ProjectUnitPermissionService,
-)
-from application.exceptions import (
-    DirectoryNotInProjectError,
-    DirectoryNotFoundError,
-    AccessDeniedError,
-)
-from application.ports.authorization import (
-    authorize,
-    CanManageProjectContent,
-    ProjectContentManagmentContext,
 )
 
 
 @dataclass
 class DeleteDirectoryRequest:
-
     project_id: ProjectId
     directory_id: DirectoryId
 
@@ -44,10 +29,15 @@ class DeleteDirectoryRequest:
         )
 
 
-# TODO: add task gateway for content deletion
-# TODO: rethink about ProjectUnitContextSerivce
-class DeleteDirectoryUsecase:
+@dataclass(frozen=True, slots=True)
+class DeleteDirectoryResponse:
+    project_id: ProjectId
+    content_ids: tuple[ContentId, ...]
+    deleted: bool
+    message: str
 
+
+class DeleteDirectoryUsecase:
     def __init__(
         self,
         context_service: DirectoryManageContextService,
@@ -60,14 +50,21 @@ class DeleteDirectoryUsecase:
         self._directory_commands: DirectoryCommandGateway = directory_commands
         self._directory_service: DirectoryService = directory_service
 
-    async def __call__(self, request: DeleteDirectoryRequest) -> str:
+    async def __call__(
+        self, request: DeleteDirectoryRequest
+    ) -> DeleteDirectoryResponse:
 
         try:
             context = await self._context_service(
                 request.project_id.value, request.directory_id.value
             )
         except DirectoryNotFoundError:
-            return "Directory is already deleted or never been in system"
+            return DeleteDirectoryResponse(
+                project_id=request.project_id,
+                content_ids=(),
+                deleted=False,
+                message="Directory is already deleted or never been in system",
+            )
 
         if self._directory_service.is_root(context.found_directory):
             raise AccessDeniedError("Cannot delete root directory")
@@ -83,7 +80,12 @@ class DeleteDirectoryUsecase:
                 "Delete operation is restricted for parent directory"
             )
 
-        deleted_units: Sequence[ProjectUnitId] | None = (
-            await self._directory_commands.delete(context.found_directory.id_)
+        deleted_content: Sequence[ContentId] = await self._directory_commands.delete(
+            context.found_directory.id_
         )
-        return "Dirctory deleted"
+        return DeleteDirectoryResponse(
+            project_id=request.project_id,
+            content_ids=tuple(deleted_content),
+            deleted=True,
+            message="Directory deleted",
+        )

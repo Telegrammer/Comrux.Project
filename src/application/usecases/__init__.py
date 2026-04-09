@@ -66,16 +66,22 @@ from .list_directory_content import (
 )
 from .delete_document import (
     DeleteDocumentRequest,
+    DeleteDocumentResponse,
     DeleteDocumentUsecase,
 )
 from .delete_directory import (
     DeleteDirectoryRequest,
+    DeleteDirectoryResponse,
     DeleteDirectoryUsecase,
 )
 from .create_content_ticket import (
     CreateContentTicketRequest,
     CreateContentTicketUsecase,
     CreateContentTicketResponse,
+)
+from .get_document_content import (
+    GetDocumentContentRequest,
+    GetDocumentContentUsecase,
 )
 from .get_user import (
     GetUserRequest,
@@ -108,4 +114,8 @@ from .assign_access_list import (
     AssignAccessListRequest,
     AssignAccessListToDirectoryUsecase,
     AssignAccessListToDocumentUsecase,
+)
+from .set_project_access import (
+    SetProjectAccessRequest,
+    SetProjectAccessUsecase,
 )

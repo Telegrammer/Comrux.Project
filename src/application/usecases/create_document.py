@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import TypedDict
 from dataclasses import dataclass
@@ -10,27 +9,26 @@ from domain.entities import (
     Document,
     DocumentId,
     UserId,
+    ProjectUnitId,
 )
+from domain.enums import ProjectUnitAction
+from domain.entities.access_list import ResolvedUnitPermissions
 from domain.entities.document import ContentId
 from domain.services import DocumentService
 from application.ports import (
     DocumentCommandGateway,
     Clock,
 )
-from application.ports.authorization import (
-    authorize,
-    CanManageProjectContent,
-    ProjectContentManagmentContext,
-)
 from application.services import (
     DirectoryManageContext,
     DirectoryManageContextService,
+    ProjectUnitPermissionService,
 )
+from application.exceptions import AccessDeniedError
 
 
 @dataclass
 class CreateDocumentRequest:
-
     project_id: ProjectId
     parent_id: DirectoryId
     name: FileName
@@ -47,22 +45,22 @@ class CreateDocumentRequest:
 
 
 class CreateDocumentResponse(TypedDict):
-
     document: DocumentId
     content_ref: ContentId
 
 
 class CreateDocumentUsecase:
-
     def __init__(
         self,
         clock: Clock,
         context_service: DirectoryManageContextService,
+        permission_service: ProjectUnitPermissionService,
         document_service: DocumentService,
         document_commands: DocumentCommandGateway,
     ):
         self._clock = clock
         self._context_service: DirectoryManageContextService = context_service
+        self._permission_service = permission_service
         self._document_service: DocumentService = document_service
         self._document_commands: DocumentCommandGateway = document_commands
 
@@ -73,17 +71,21 @@ class CreateDocumentUsecase:
             request.project_id, request.parent_id
         )
 
-        authorize(
-            CanManageProjectContent(),
-            context=ProjectContentManagmentContext(
-                subject=context.current_user, target=context.pinned_project
-            ),
+        permissions: ResolvedUnitPermissions = await self._permission_service(
+            context.current_user,
+            context.pinned_project,
+            ProjectUnitId(context.found_directory.id_),
         )
+
+        if ProjectUnitAction.WRITE in permissions.denied:
+            raise AccessDeniedError(
+                "Cannot create document. Parent directory have restrictions by acls"
+            )
 
         new_document: Document = self._document_service.create_document(
             project=context.pinned_project,
             name=request.name,
-            parent=context.parent_directory,
+            parent=context.found_directory,
             creator=UserId(context.current_user.id_),
             now=now,
         )
