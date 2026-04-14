@@ -9,6 +9,8 @@ from setup.config import Settings
 
 from domain import ProjectService, UserService, DirectoryService, DocumentService
 from domain.services import ContentTicketService, TaskService, AccessListService
+from domain.export import ProjectReleaseService
+from domain.export.ports import ProjectReleaseIdGenerator
 from domain.policies import BirthDatePolicy, ContentTicketValidityPolicy, TaskPolicy
 from domain.ports import (
     ProjectIdGenerator,
@@ -28,6 +30,7 @@ from infrastructure.adapters import (
     TaskUuid4Generator,
     JsonProjectUnitVisitor,
 )
+from infrastructure.export import Uuid4ProjectReleaseIdGenerator
 
 
 class DomainProvider(Provider):
@@ -47,6 +50,10 @@ class DomainProvider(Provider):
         source=Uuid4ContentIdGenerator, provides=ContentIdGenerator
     )
     task_id_generator = provide(source=TaskUuid4Generator, provides=TaskIdGenerator)
+    project_release_id_generator = provide(
+        source=Uuid4ProjectReleaseIdGenerator,
+        provides=ProjectReleaseIdGenerator,
+    )
     project_unit_visitor = provide(
         source=JsonProjectUnitVisitor, provides=ProjectUnitVisitor
     )
@@ -76,4 +83,5 @@ class DomainProvider(Provider):
     document_service = provide(DocumentService)
     ticket_service = provide(ContentTicketService)
     task_service = provide(TaskService)
+    project_release_service = provide(ProjectReleaseService)
     acl_service = provide(AccessListService)
