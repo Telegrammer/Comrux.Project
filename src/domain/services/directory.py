@@ -55,6 +55,7 @@ class DirectoryService:
             name=FileName(""),
             project=ProjectId(project.id_),
             parent=None,
+            access_list=None,
             created_by=owner,
             created_at=PassedDatetime(now, now),
         )
