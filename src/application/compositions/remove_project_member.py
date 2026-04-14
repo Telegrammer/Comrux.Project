@@ -3,7 +3,9 @@ __all__ = ["RemoveProjectMemberComposition"]
 
 import logging
 
-from application.ports import UnitOfWork
+from domain.entities import Task
+from domain.services import TaskService
+from application.ports import UnitOfWork, Clock, TaskCommandGateway
 from application.usecases import (
     RemoveProjectMemberRequest,
     RemoveProjectMemberUsecase,
@@ -16,8 +18,17 @@ logger = logging.getLogger(__name__)
 
 
 class RemoveProjectMemberComposition:
-
-    def __init__(self, unit_of_work: UnitOfWork, usecase: RemoveProjectMemberUsecase):
+    def __init__(
+        self,
+        clock: Clock,
+        task_service: TaskService,
+        task_gateway: TaskCommandGateway,
+        unit_of_work: UnitOfWork,
+        usecase: RemoveProjectMemberUsecase,
+    ):
+        self._clock = clock
+        self._task_service = task_service
+        self._task_gateway = task_gateway
         self._unit_of_work: UnitOfWork = unit_of_work
         self._usecase: RemoveProjectMemberUsecase = usecase
 
@@ -32,6 +43,17 @@ class RemoveProjectMemberComposition:
                 request.project_id.value,
             )
             response = await self._usecase(request)
+
+            task: Task = self._task_service.create_task(
+                "project.member_removed",
+                {
+                    "project_id": request.project_id.value,
+                    "member_id": request.user_id.value,
+                },
+                self._clock.now(),
+            )
+            await self._task_gateway.add(task)
+
         logger.info(
             "User %s successfully removed from project %s (%s)",
             response["member"],
