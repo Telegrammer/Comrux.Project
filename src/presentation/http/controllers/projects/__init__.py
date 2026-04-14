@@ -21,6 +21,7 @@ from .delete_access_list import create_delete_acl_router
 from .assign_directory_access_list import create_assign_directory_acl_router
 from .assign_document_access_list import create_assign_document_acl_router
 from .set_project_access import create_set_project_access_router
+from .releases import create_project_release_router
 
 projects_router = APIRouter(prefix="/project", tags=["project"])
 projects_router.include_router(create_create_project_router())
@@ -46,3 +47,4 @@ projects_router.include_router(create_assign_document_acl_router())
 projects_router.include_router(create_content_ticket_router())
 projects_router.include_router(create_get_document_content_router())
 projects_router.include_router(create_list_acls_router())
+projects_router.include_router(create_project_release_router())
