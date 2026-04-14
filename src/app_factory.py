@@ -9,13 +9,14 @@ from faststream import ContextRepo, FastStream
 import logging
 import json
 
-from setup import (
-    Settings,
-    settings,
-    DatabaseHelper,
-    DatabaseProvider,
+from setup import Settings, settings, DatabaseHelper
+from setup.providers import (
     ApplicationProvider,
+    DatabaseProvider,
     DomainProvider,
+    ExportApplicationProvider,
+    ExportDomainProvider,
+    ExportPresentationProvider,
     PresentationProvider,
 )
 
@@ -46,6 +47,9 @@ def create_app() -> FastAPI:
         DomainProvider(),
         ApplicationProvider(),
         PresentationProvider(),
+        ExportDomainProvider(),
+        ExportApplicationProvider(),
+        ExportPresentationProvider(),
         context={Settings: settings, KafkaBroker: broker},
     )
 
