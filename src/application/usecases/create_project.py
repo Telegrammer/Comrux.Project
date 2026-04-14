@@ -15,7 +15,6 @@ from application.services import CurrentUserService
 
 @dataclass
 class CreateProjectRequest:
-
     title: Title
     description: str
 
@@ -26,17 +25,21 @@ class CreateProjectRequest:
 
 class CreateProjectResponse(TypedDict):
     project_id: ProjectId
+    owner_id: UserId
     root_directory_id: DirectoryId
 
     @classmethod
     def from_entity(
         cls, project: Project, directory: Directory
     ) -> "CreateProjectResponse":
-        return cls(project_id=project.id_, root_directory_id=directory.id_)
+        return cls(
+            project_id=project.id_,
+            root_directory_id=directory.id_,
+            owner_id=next(iter(project.members.keys())).value,
+        )
 
 
 class CreateProjectUsecase:
-
     def __init__(
         self,
         current_user_service: CurrentUserService,
