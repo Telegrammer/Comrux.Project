@@ -69,7 +69,16 @@ class DatabaseConfig(BaseModel):
 class CollaborationConfig(BaseModel):
     base_url: str = "http://localhost:8001"
     content_path: str = "/group/{group_id}/content/{content_id}"
+    group_content_path: str = "/group/{group_id}/content"
     timeout_seconds: float = 5.0
+
+
+class StorageConfig(BaseModel):
+    s3_endpoint_url: str = "http://localhost:9000"
+    s3_access_key: str = "minioadmin"
+    s3_secret_key: str = "minioadmin"
+    s3_region: str = "us-east-1"
+    releases_bucket: str = "releases"
 
 
 class Settings(BaseSettings):
@@ -84,6 +93,7 @@ class Settings(BaseSettings):
     transport: TransportConfig
     auth: JwtAuthConfig
     collaboration: CollaborationConfig = CollaborationConfig()
+    storage: StorageConfig = StorageConfig()
 
 
 settings = Settings()
