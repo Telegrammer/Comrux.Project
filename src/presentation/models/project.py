@@ -21,6 +21,7 @@ class ProjectRead(ProjectCreate):
     members_count: int
     created_at: datetime
     root_id: str
+    is_private: bool
 
 
 class CurrentUserProjectRead(ProjectCreate):
@@ -28,6 +29,7 @@ class CurrentUserProjectRead(ProjectCreate):
     role: ProjectRole | None
     created_at: datetime
     root_id: str
+    is_private: bool
 
 
 class ProjectUpdate(ProjectCreate): ...

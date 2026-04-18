@@ -16,6 +16,9 @@ class Id[T](ValueObject):
     def __eq__(self, other) -> bool:
         return self.value == other.value
 
+    def __hash__(self) -> int:
+        return hash(self.value)
+
 
 @dataclass
 class Uuid4(Id[str]):
@@ -27,6 +30,9 @@ class Uuid4(Id[str]):
         )
         if not pattern.search(self.value):
             raise DomainFieldError("value is not an id")
+
+    def __hash__(self) -> int:
+        return hash(self.value)
 
 
 @dataclass
@@ -44,3 +50,6 @@ class Uuid7(Id[str]):
         pattern = re.compile(r"^[0-9a-f]{8}(?:\-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
         if not pattern.search(self.value):
             raise DomainFieldError("value is not an id")
+
+    def __hash__(self) -> int:
+        return hash(self.value)

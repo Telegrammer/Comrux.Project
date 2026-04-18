@@ -27,6 +27,7 @@ class ListProjectsElementResponse(TypedDict):
     members_count: int
     created_at: PassedDatetime
     root_id: DirectoryId
+    is_private: bool
 
     @classmethod
     def from_entity(
@@ -43,6 +44,7 @@ class ListProjectsElementResponse(TypedDict):
             members_count=len(entity.members),
             created_at=entity.created_at,
             root_id=entity.root_directory,
+            is_private=entity.is_private,
         )
 
 

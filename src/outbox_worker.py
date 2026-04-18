@@ -2,10 +2,7 @@ import logging
 import sys
 from faststream.kafka import KafkaBroker
 from dishka import make_async_container
-from setup import (
-    DatabaseProvider,
-    TransportProvider,
-)
+from setup.providers import DatabaseProvider, TransportProvider
 from setup.providers.outbox_worker import (
     DomainProvider,
     ApplicationProvider,

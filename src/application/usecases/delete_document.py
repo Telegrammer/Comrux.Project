@@ -47,9 +47,7 @@ class DeleteDocumentUsecase:
         self._permission_service = permission_service
         self._document_commands: DocumentCommandGateway = document_commands
 
-    async def __call__(
-        self, request: DeleteDocumentRequest
-    ) -> DeleteDocumentResponse:
+    async def __call__(self, request: DeleteDocumentRequest) -> DeleteDocumentResponse:
 
         try:
             context: DocumentManageContext = await self._context_service(
@@ -66,7 +64,7 @@ class DeleteDocumentUsecase:
         permissions: ResolvedUnitPermissions = await self._permission_service(
             context.current_user,
             context.pinned_project,
-            ProjectUnitId(context.found_document.parent.value),
+            ProjectUnitId(context.found_document.parent),
         )
 
         if ProjectUnitAction.WRITE in permissions.denied:

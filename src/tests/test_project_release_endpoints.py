@@ -20,6 +20,7 @@ from presentation.export import (
     ProjectReleaseCreate,
     ProjectReleaseCreatedResponse,
     ProjectReleaseReadResponse,
+    ProjectReleasesListResponse,
 )
 from presentation.http.controllers.projects.releases import create_project_release_router
 
@@ -104,6 +105,34 @@ class StubDownloadProjectReleaseHandler:
         )
 
 
+class StubListProjectReleasesHandler:
+    async def __call__(
+        self,
+        project_id: UUID4,
+        limit: int,
+        offset: int,
+    ) -> ProjectReleasesListResponse:
+        assert limit == 20
+        assert offset == 0
+        return ProjectReleasesListResponse(
+            items=[
+                ProjectReleaseReadResponse(
+                    id_="550e8400-e29b-41d4-a716-446655440010",
+                    project_id=str(project_id),
+                    name="release-1",
+                    status="READY",
+                    file_name="release-1.zip",
+                    archive_size=256,
+                    error_message=None,
+                    created_at="2026-04-14T12:00:00+00:00",
+                    started_at="2026-04-14T12:01:00+00:00",
+                    finished_at="2026-04-14T12:02:00+00:00",
+                )
+            ],
+            total=1,
+        )
+
+
 def _dishka_request(handler: object, method: str) -> StarletteRequest:
     async def receive() -> dict[str, object]:
         return {
@@ -126,6 +155,33 @@ def _route(app: FastAPI, path: str, method: str) -> APIRoute:
         for route in app.routes
         if isinstance(route, APIRoute) and route.path == path and method in route.methods
     )
+
+
+def test_list_project_releases_endpoint_returns_list_payload() -> None:
+    project_id: UUID4 = UUID("550e8400-e29b-41d4-a716-446655440001")  # type: ignore[assignment]
+    app = FastAPI()
+    projects_router = APIRouter(prefix="/project", tags=["project"])
+    projects_router.include_router(create_project_release_router())
+    app.include_router(projects_router)
+    route = _route(app, "/project/{project_id}/releases", "GET")
+    endpoint = cast(
+        Callable[..., Awaitable[ProjectReleasesListResponse]],
+        getattr(route.endpoint, "__wrapped__", route.endpoint),
+    )
+
+    result = asyncio.run(
+        endpoint(
+            project_id=project_id,
+            limit=20,
+            offset=0,
+            token=HTTPAuthorizationCredentials(scheme="Bearer", credentials="token"),
+            ___dishka_request=_dishka_request(StubListProjectReleasesHandler(), "GET"),
+        )
+    )
+
+    assert result.total == 1
+    assert result.items[0].status == "READY"
+    assert result.items[0].name == "release-1"
 
 
 def test_create_project_release_endpoint_returns_created_payload() -> None:

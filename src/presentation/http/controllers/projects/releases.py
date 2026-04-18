@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from dishka.integrations.fastapi import FromDishka, inject
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi_error_map import ErrorAwareRouter
 from pydantic import UUID4
@@ -22,8 +22,10 @@ from presentation.export import (
     CreateProjectReleaseHandler,
     DownloadProjectReleaseHandler,
     GetProjectReleaseHandler,
+    ListProjectReleasesHandler,
     ProjectReleaseCreatedResponse,
     ProjectReleaseReadResponse,
+    ProjectReleasesListResponse,
 )
 from presentation.http.controllers.dependencies import (
     http_bearer,
@@ -57,6 +59,30 @@ def create_project_release_router() -> APIRouter:
     ) -> ProjectReleaseCreatedResponse:
         del token
         return await handler(project_id, request_body)
+
+    @router.get(
+        "/{project_id}/releases",
+        error_map={
+            ProjectNotFoundError: status.HTTP_404_NOT_FOUND,
+            CurrentUserNotFoundError: status.HTTP_401_UNAUTHORIZED,
+            ExpiredAccessKeyError: status.HTTP_401_UNAUTHORIZED,
+            AccessDeniedError: status.HTTP_403_FORBIDDEN,
+            GatewayFailedError: service_unavailable_rule,
+        },
+        default_on_error=log_info,
+        status_code=status.HTTP_200_OK,
+        response_model=ProjectReleasesListResponse,
+    )
+    @inject
+    async def list_releases(
+        project_id: Annotated[UUID4, Path()],
+        handler: FromDishka[ListProjectReleasesHandler],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        offset: Annotated[int, Query(ge=0)] = 0,
+        token: HTTPAuthorizationCredentials = Depends(http_bearer),
+    ) -> ProjectReleasesListResponse:
+        del token
+        return await handler(project_id, limit, offset)
 
     @router.get(
         "/{project_id}/releases/{release_id}",

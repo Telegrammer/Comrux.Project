@@ -31,6 +31,7 @@ class ListCurrentUserProjectsResponse(TypedDict):
     role: ProjectRole
     created_at: PassedDatetime
     root_id: DirectoryId
+    is_private: bool
 
     @classmethod
     def from_entity(
@@ -43,6 +44,7 @@ class ListCurrentUserProjectsResponse(TypedDict):
             role=role,
             created_at=entity.created_at,
             root_id=entity.root_directory,
+            is_private=entity.is_private,
         )
 
 

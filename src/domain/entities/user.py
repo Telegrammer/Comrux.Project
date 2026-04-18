@@ -8,9 +8,8 @@ from .base import Entity
 from ..value_objects import Name, Uuid4, BirthDate, EmailAddress
 
 
-class UserId(Uuid4): 
-    def __hash__(self):
-        return hash(self.value)
+class UserId(Uuid4):
+    pass
 
 @dataclass
 class User(Entity[UserId]):

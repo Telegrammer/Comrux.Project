@@ -56,7 +56,7 @@ class DeleteDirectoryUsecase:
 
         try:
             context = await self._context_service(
-                request.project_id.value, request.directory_id.value
+                request.project_id, request.directory_id
             )
         except DirectoryNotFoundError:
             return DeleteDirectoryResponse(

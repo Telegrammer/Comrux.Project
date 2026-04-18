@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING
 
 from domain.exceptions import DomainFieldError
 from domain.entities.base import AggregationRoot
@@ -12,8 +11,7 @@ from domain.entities.user import UserId
 from domain.value_objects import PassedDatetime, Uuid4
 from utils import unwrap_value
 
-if TYPE_CHECKING:
-    from .ports import ProjectReleaseIdGenerator
+from .ports import ProjectReleaseIdGenerator
 
 
 class ProjectReleaseId(Uuid4): ...
@@ -42,7 +40,7 @@ class ProjectRelease(AggregationRoot[ProjectReleaseId]):
 
 
 class ProjectReleaseService:
-    def __init__(self, id_generator: "ProjectReleaseIdGenerator") -> None:
+    def __init__(self, id_generator: ProjectReleaseIdGenerator) -> None:
         self._id_generator = id_generator
 
     def create_release(

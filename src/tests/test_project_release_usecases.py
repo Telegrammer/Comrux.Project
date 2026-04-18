@@ -12,10 +12,13 @@ from application.export import (
     CreateProjectReleaseComposition,
     CreateProjectReleaseRequest,
     CreateProjectReleaseUsecase,
+    ListProjectReleasesRequest,
+    ListProjectReleasesUsecase,
     ProjectTreeNodeSnapshot,
     PublishedGroupContent,
     StoredProjectReleaseArtifact,
 )
+from application.exceptions import AccessDeniedError
 from application.ports.gateways.errors import GatewayFailedError
 from domain.entities import UserId
 from domain.entities.project import Project, ProjectId
@@ -50,7 +53,8 @@ class FakeProjectQueryGateway:
         self._project = project
 
     async def by_id(self, project_id: ProjectId) -> Project:
-        assert project_id.value == self._project.id_
+        value = project_id.value if hasattr(project_id, "value") else str(project_id)
+        assert value == self._project.id_
         return self._project
 
 
@@ -89,13 +93,34 @@ class FakeReleaseQueryGateway:
         self._release = release
 
     async def by_id(self, release_id) -> ProjectRelease | None:
-        assert release_id.value == self._release.id_
+        value = release_id.value if hasattr(release_id, "value") else str(release_id)
+        assert value == self._release.id_
         return self._release
+
+
+class FakeListProjectReleasesQueryGateway:
+    def __init__(self, releases: list[ProjectRelease]) -> None:
+        self._releases = releases
+
+    async def by_id(self, release_id) -> ProjectRelease | None:
+        del release_id
+        raise AssertionError("by_id must not be called")
+
+    async def list_by_project(self, project_id, status, limit, offset):
+        assert status is ProjectReleaseStatus.READY
+        assert (
+            project_id.value
+            == "550e8400-e29b-41d4-a716-446655440001"
+        )
+        filtered = [r for r in self._releases if r.status is status]
+        total = len(filtered)
+        return filtered[offset : offset + limit], total
 
 
 class FakeTreeSnapshotGateway:
     async def by_project(self, project_id: ProjectId) -> list[ProjectTreeNodeSnapshot]:
-        assert project_id == ProjectId("550e8400-e29b-41d4-a716-446655440001")
+        value = project_id.value if hasattr(project_id, "value") else str(project_id)
+        assert value == "550e8400-e29b-41d4-a716-446655440001"
         return [
             ProjectTreeNodeSnapshot(path="src", unit_type="DIRECTORY"),
             ProjectTreeNodeSnapshot(
@@ -108,7 +133,8 @@ class FakeTreeSnapshotGateway:
 
 class FakeGroupPublishedContentGateway:
     async def by_group(self, group_id: ProjectId) -> list[PublishedGroupContent]:
-        assert group_id == ProjectId("550e8400-e29b-41d4-a716-446655440001")
+        value = group_id.value if hasattr(group_id, "value") else str(group_id)
+        assert value == "550e8400-e29b-41d4-a716-446655440001"
         return [
             PublishedGroupContent(
                 content_id="550e8400-e29b-41d4-a716-446655440010",
@@ -171,6 +197,95 @@ def _project(owner_id: str, now: datetime) -> Project:
         created_at=PassedDatetime(now, now),
         is_private=False,
     )
+
+
+def _ready_release(release_id: str, name: str, now: datetime) -> ProjectRelease:
+    service = ProjectReleaseService(id_generator=lambda: ProjectReleaseId(release_id))
+    created = service.create_release(
+        project_id=ProjectId("550e8400-e29b-41d4-a716-446655440001"),
+        requested_by=UserId("550e8400-e29b-41d4-a716-446655440002"),
+        name=name,
+        now=now,
+    )
+    return service.mark_ready(
+        created,
+        artifact_key=f"{release_id}/a.zip",
+        file_name=f"{name}.zip",
+        archive_size=64,
+        now=now,
+    )
+
+
+def test_list_project_releases_usecase_returns_ready_releases_for_member() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 12, 0, tzinfo=timezone.utc)
+        current_user_id = "550e8400-e29b-41d4-a716-446655440002"
+        project = _project(current_user_id, now)
+        releases = [
+            _ready_release(
+                "550e8400-e29b-41d4-a716-446655440020",
+                "Second",
+                now,
+            ),
+            _ready_release(
+                "550e8400-e29b-41d4-a716-446655440021",
+                "First",
+                now,
+            ),
+        ]
+        usecase = ListProjectReleasesUsecase(
+            current_user=FakeCurrentUserService(current_user_id),
+            project_queries=FakeProjectQueryGateway(project),
+            release_queries=FakeListProjectReleasesQueryGateway(releases),
+        )
+
+        page = await usecase(
+            ListProjectReleasesRequest.from_primitives(
+                project_id=project.id_,
+                limit=1,
+                offset=1,
+            )
+        )
+
+        assert page["total"] == 2
+        assert len(page["items"]) == 1
+        assert page["items"][0]["name"] == "First"
+
+    asyncio.run(scenario())
+
+
+def test_list_project_releases_usecase_denies_non_member() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 12, 0, tzinfo=timezone.utc)
+        owner_id = "550e8400-e29b-41d4-a716-446655440002"
+        outsider_id = "550e8400-e29b-41d4-a716-446655440099"
+        project = _project(owner_id, now)
+        releases = [
+            _ready_release(
+                "550e8400-e29b-41d4-a716-446655440020",
+                "Only",
+                now,
+            ),
+        ]
+        usecase = ListProjectReleasesUsecase(
+            current_user=FakeCurrentUserService(outsider_id),
+            project_queries=FakeProjectQueryGateway(project),
+            release_queries=FakeListProjectReleasesQueryGateway(releases),
+        )
+
+        try:
+            await usecase(
+                ListProjectReleasesRequest.from_primitives(
+                    project_id=project.id_,
+                    limit=20,
+                    offset=0,
+                )
+            )
+        except AccessDeniedError:
+            return
+        raise AssertionError("expected AccessDeniedError")
+
+    asyncio.run(scenario())
 
 
 def test_create_project_release_composition_creates_release_and_outbox_task() -> None:

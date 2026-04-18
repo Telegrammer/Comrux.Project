@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Protocol, Sequence
 
 from domain.entities.project import ProjectId
-from domain.export import ProjectRelease, ProjectReleaseId
+from domain.export import ProjectRelease, ProjectReleaseId, ProjectReleaseStatus
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,14 @@ class ProjectReleaseCommandGateway(Protocol):
 
 class ProjectReleaseQueryGateway(Protocol):
     async def by_id(self, release_id: ProjectReleaseId) -> ProjectRelease | None: ...
+
+    async def list_by_project(
+        self,
+        project_id: ProjectId,
+        status: ProjectReleaseStatus,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ProjectRelease], int]: ...
 
 
 class ProjectTreeSnapshotGateway(Protocol):

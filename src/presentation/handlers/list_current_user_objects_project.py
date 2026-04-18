@@ -47,6 +47,7 @@ class ListCurrentUserProjectsHandler:
                 role=elem["role"] if not role else None,
                 created_at=elem["created_at"],
                 root_id=elem["root_id"],
+                is_private=elem["is_private"],
             )
             for elem in response
         ]

@@ -40,7 +40,7 @@ class DeleteDocumentComposition:
                         self._task_type,
                         {
                             "content_ids": [
-                                content_id.value for content_id in response.content_ids
+                                content_id for content_id in response.content_ids
                             ],
                             "group": response.project_id.value,
                         },

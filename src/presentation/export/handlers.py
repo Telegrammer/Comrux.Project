@@ -7,12 +7,15 @@ from application.export import (
     DownloadProjectReleaseUsecase,
     GetProjectReleaseRequest,
     GetProjectReleaseUsecase,
+    ListProjectReleasesRequest,
+    ListProjectReleasesUsecase,
 )
 from application.export.contracts import ProjectReleaseArtifactGateway, ProjectReleaseDownload
 from presentation.export.models import (
     ProjectReleaseCreate,
     ProjectReleaseCreatedResponse,
     ProjectReleaseReadResponse,
+    ProjectReleasesListResponse,
 )
 from utils import unwrap_value
 
@@ -54,6 +57,32 @@ class GetProjectReleaseHandler:
             )
         )
         return ProjectReleaseReadResponse.model_validate(response)
+
+
+class ListProjectReleasesHandler:
+    def __init__(self, usecase: ListProjectReleasesUsecase) -> None:
+        self._usecase = usecase
+
+    async def __call__(
+        self,
+        project_id: UUID4,
+        limit: int,
+        offset: int,
+    ) -> ProjectReleasesListResponse:
+        result = await self._usecase(
+            ListProjectReleasesRequest.from_primitives(
+                project_id=str(project_id),
+                limit=limit,
+                offset=offset,
+            )
+        )
+        return ProjectReleasesListResponse(
+            items=[
+                ProjectReleaseReadResponse.model_validate(item)
+                for item in result["items"]
+            ],
+            total=result["total"],
+        )
 
 
 class DownloadProjectReleaseHandler:

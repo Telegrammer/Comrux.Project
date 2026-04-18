@@ -39,6 +39,34 @@ class ProjectReleaseReadResult(TypedDict):
     finished_at: str | None
 
 
+class ProjectReleasesListResult(TypedDict):
+    items: list[ProjectReleaseReadResult]
+    total: int
+
+
+def _project_release_to_read_result(release: ProjectRelease) -> ProjectReleaseReadResult:
+    return ProjectReleaseReadResult(
+        id_=str(unwrap_value(release.id_)),
+        project_id=str(unwrap_value(release.project_id)),
+        name=release.name,
+        status=release.status.value,
+        file_name=release.file_name,
+        archive_size=release.archive_size,
+        error_message=release.error_message,
+        created_at=unwrap_value(release.created_at).isoformat(),
+        started_at=(
+            release.started_at.isoformat()
+            if release.started_at is not None
+            else None
+        ),
+        finished_at=(
+            release.finished_at.isoformat()
+            if release.finished_at is not None
+            else None
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class CreateProjectReleaseRequest:
     project_id: ProjectId
@@ -87,6 +115,26 @@ class DownloadProjectReleaseRequest:
         )
 
 
+@dataclass(frozen=True)
+class ListProjectReleasesRequest:
+    project_id: ProjectId
+    limit: int
+    offset: int
+
+    @classmethod
+    def from_primitives(
+        cls,
+        project_id: str,
+        limit: int,
+        offset: int,
+    ) -> "ListProjectReleasesRequest":
+        return cls(
+            project_id=ProjectId(project_id),
+            limit=limit,
+            offset=offset,
+        )
+
+
 class CreateProjectReleaseUsecase:
     def __init__(
         self,
@@ -104,15 +152,15 @@ class CreateProjectReleaseUsecase:
         self,
         request: CreateProjectReleaseRequest,
     ) -> ProjectRelease:
-        project: Project = await self._project_queries.by_id(request.project_id)
+        project: Project = await self._project_queries.by_id(request.project_id.value)
         current_user: User = await self._current_user()
 
-        if UserId(str(unwrap_value(current_user.id_))) not in project.members:
+        if UserId(current_user.id_) not in project.members:
             raise AccessDeniedError("Only project members can create releases")
 
         return self._release_service.create_release(
-            project_id=ProjectId(unwrap_value(project.id_)),
-            requested_by=UserId(unwrap_value(current_user.id_)),
+            project_id=ProjectId(project.id_),
+            requested_by=UserId(current_user.id_),
             name=request.name,
             now=self._clock.now(),
         )
@@ -129,36 +177,55 @@ class GetProjectReleaseUsecase:
         self._project_queries = project_queries
         self._release_queries = release_queries
 
-    async def __call__(self, request: GetProjectReleaseRequest) -> ProjectReleaseReadResult:
-        project: Project = await self._project_queries.by_id(request.project_id)
+    async def __call__(
+        self, request: GetProjectReleaseRequest
+    ) -> ProjectReleaseReadResult:
+        project: Project = await self._project_queries.by_id(request.project_id.value)
         current_user: User = await self._current_user()
 
         if UserId(str(unwrap_value(current_user.id_))) not in project.members:
             raise AccessDeniedError("Only project members can read releases")
 
-        release = await self._release_queries.by_id(request.release_id)
-        if release is None or unwrap_value(release.project_id) != unwrap_value(project.id_):
+        release = await self._release_queries.by_id(request.release_id.value)
+        if release is None or unwrap_value(release.project_id) != unwrap_value(
+            project.id_
+        ):
             raise ProjectReleaseNotFoundError(
                 "Release does not belong to the given project"
             )
 
-        return ProjectReleaseReadResult(
-            id_=str(unwrap_value(release.id_)),
-            project_id=str(unwrap_value(release.project_id)),
-            name=release.name,
-            status=release.status.value,
-            file_name=release.file_name,
-            archive_size=release.archive_size,
-            error_message=release.error_message,
-            created_at=unwrap_value(release.created_at).isoformat(),
-            started_at=(
-                release.started_at.isoformat() if release.started_at is not None else None
-            ),
-            finished_at=(
-                release.finished_at.isoformat()
-                if release.finished_at is not None
-                else None
-            ),
+        return _project_release_to_read_result(release)
+
+
+class ListProjectReleasesUsecase:
+    def __init__(
+        self,
+        current_user: CurrentUserService,
+        project_queries: ProjectQueryGateway,
+        release_queries: ProjectReleaseQueryGateway,
+    ) -> None:
+        self._current_user = current_user
+        self._project_queries = project_queries
+        self._release_queries = release_queries
+
+    async def __call__(
+        self, request: ListProjectReleasesRequest
+    ) -> ProjectReleasesListResult:
+        project: Project = await self._project_queries.by_id(request.project_id.value)
+        current_user: User = await self._current_user()
+
+        if UserId(str(unwrap_value(current_user.id_))) not in project.members:
+            raise AccessDeniedError("Only project members can list releases")
+
+        items, total = await self._release_queries.list_by_project(
+            request.project_id,
+            ProjectReleaseStatus.READY,
+            request.limit,
+            request.offset,
+        )
+        return ProjectReleasesListResult(
+            items=[_project_release_to_read_result(r) for r in items],
+            total=total,
         )
 
 
@@ -177,14 +244,16 @@ class DownloadProjectReleaseUsecase:
         self,
         request: DownloadProjectReleaseRequest,
     ) -> ProjectRelease:
-        project: Project = await self._project_queries.by_id(request.project_id)
+        project: Project = await self._project_queries.by_id(request.project_id.value)
         current_user: User = await self._current_user()
 
         if UserId(str(unwrap_value(current_user.id_))) not in project.members:
             raise AccessDeniedError("Only project members can download releases")
 
-        release = await self._release_queries.by_id(request.release_id)
-        if release is None or unwrap_value(release.project_id) != unwrap_value(project.id_):
+        release = await self._release_queries.by_id(request.release_id.value)
+        if release is None or unwrap_value(release.project_id) != unwrap_value(
+            project.id_
+        ):
             raise ProjectReleaseNotFoundError(
                 "Release does not belong to the given project"
             )

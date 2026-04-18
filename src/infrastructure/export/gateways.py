@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import base64
+import binascii
 from collections import defaultdict
 from typing import Sequence
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from y_py import YDoc, apply_update
 
 from application.export import (
     GroupPublishedContentGateway,
@@ -46,15 +48,15 @@ def _to_domain_release(dto: ProjectReleaseOrm) -> ProjectRelease:
 def _to_dto_release(entity: ProjectRelease) -> ProjectReleaseOrm:
     return ProjectReleaseOrm(
         id_=entity.id_,
-        project_id=entity.project_id,
-        requested_by=entity.requested_by,
+        project_id=entity.project_id.value,
+        requested_by=entity.requested_by.value,
         name=entity.name,
         status=entity.status,
         artifact_key=entity.artifact_key,
         file_name=entity.file_name,
         archive_size=entity.archive_size,
         error_message=entity.error_message,
-        created_at=entity.created_at,
+        created_at=entity.created_at.value,
         started_at=entity.started_at,
         finished_at=entity.finished_at,
     )
@@ -66,6 +68,7 @@ class SqlAlchemyProjectReleaseCommandGateway(ProjectReleaseCommandGateway):
 
     async def add(self, release: ProjectRelease) -> None:
         self._session.add(_to_dto_release(release))
+
         await self._session.flush()
 
     async def update(self, release: ProjectRelease) -> None:
@@ -83,19 +86,44 @@ class SqlAlchemyProjectReleaseQueryGateway(ProjectReleaseQueryGateway):
             return None
         return _to_domain_release(dto)
 
+    async def list_by_project(
+        self,
+        project_id: ProjectId,
+        status: ProjectReleaseStatus,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ProjectRelease], int]:
+        pid = project_id.value
+        filters = (
+            ProjectReleaseOrm.project_id == pid,
+            ProjectReleaseOrm.status == status,
+        )
+        count_stmt = select(func.count()).select_from(ProjectReleaseOrm).where(*filters)
+        total = int((await self._session.execute(count_stmt)).scalar_one())
+        stmt = (
+            select(ProjectReleaseOrm)
+            .where(*filters)
+            .order_by(ProjectReleaseOrm.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [_to_domain_release(row) for row in rows], total
+
 
 class SqlAlchemyProjectTreeSnapshotGateway(ProjectTreeSnapshotGateway):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def by_project(self, project_id: ProjectId) -> Sequence[ProjectTreeNodeSnapshot]:
+    async def by_project(
+        self, project_id: ProjectId
+    ) -> Sequence[ProjectTreeNodeSnapshot]:
         stmt = (
             select(ProjectUnitNode)
             .where(ProjectUnitNode.project_id == project_id)
             .order_by(ProjectUnitNode.parent_id, ProjectUnitNode.name)
         )
         nodes = (await self._session.execute(stmt)).scalars().all()
-        nodes_by_id = {str(node.id_): node for node in nodes}
         children_by_parent: dict[str | None, list[ProjectUnitNode]] = defaultdict(list)
         for node in nodes:
             parent_key = str(node.parent_id) if node.parent_id is not None else None
@@ -133,8 +161,37 @@ class HttpGroupPublishedContentGateway(GroupPublishedContentGateway):
         self._group_content_path = settings.collaboration.group_content_path
         self._timeout_seconds = settings.collaboration.timeout_seconds
 
+    @staticmethod
+    def _decode_content(raw_content: object, encoding: object) -> bytes:
+        if isinstance(raw_content, bytes):
+            return raw_content
+        if isinstance(raw_content, list):
+            try:
+                return bytes(raw_content)
+            except ValueError as error:
+                raise GatewayFailedError("Cannot decode published content payload") from error
+        if isinstance(raw_content, str):
+            if encoding == "base64" or encoding is None:
+                try:
+                    return base64.b64decode(raw_content, validate=True)
+                except binascii.Error:
+                    if encoding == "base64":
+                        raise GatewayFailedError("Cannot decode published content payload")
+            return raw_content.encode()
+        raise GatewayFailedError("Cannot decode published content payload")
+
+    @staticmethod
+    def _decode_document(raw_content: bytes) -> bytes:
+        try:
+            doc = YDoc()
+            apply_update(doc, raw_content)
+            content = str(doc.get_text("content"))
+            return content.encode()
+        except Exception:
+            return raw_content
+
     async def by_group(self, group_id: ProjectId) -> Sequence[PublishedGroupContent]:
-        path = self._group_content_path.format(group_id=group_id.value)
+        path = self._group_content_path.format(group_id=group_id)
         url = f"{self._base_url}{path}"
         try:
             async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
@@ -149,7 +206,12 @@ class HttpGroupPublishedContentGateway(GroupPublishedContentGateway):
         return [
             PublishedGroupContent(
                 content_id=item["content_id"],
-                content=base64.b64decode(item["content"]),
+                content=self._decode_document(
+                    self._decode_content(
+                        raw_content=item["content"],
+                        encoding=item.get("encoding"),
+                    )
+                ),
             )
             for item in payload
         ]

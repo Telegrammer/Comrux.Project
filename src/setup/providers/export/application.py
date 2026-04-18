@@ -6,6 +6,7 @@ from application.export import (
     CreateProjectReleaseUsecase,
     DownloadProjectReleaseUsecase,
     GetProjectReleaseUsecase,
+    ListProjectReleasesUsecase,
     GroupPublishedContentGateway,
     ProjectReleaseArtifactGateway,
     ProjectReleaseCommandGateway,
@@ -50,6 +51,7 @@ class ExportApplicationProvider(Provider):
 
     create_project_release_usecase = provide(CreateProjectReleaseUsecase)
     get_project_release_usecase = provide(GetProjectReleaseUsecase)
+    list_project_releases_usecase = provide(ListProjectReleasesUsecase)
     download_project_release_usecase = provide(DownloadProjectReleaseUsecase)
 
     create_project_release_composition = provide(CreateProjectReleaseComposition)

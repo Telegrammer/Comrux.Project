@@ -11,11 +11,18 @@ from application.export.contracts import (
     ProjectReleaseQueryGateway,
     ProjectTreeSnapshotGateway,
 )
-from application.export.usecases import CreateProjectReleaseRequest, CreateProjectReleaseUsecase
+from application.export.usecases import (
+    CreateProjectReleaseRequest,
+    CreateProjectReleaseUsecase,
+)
 from application.ports import Clock, TaskCommandGateway, UnitOfWork
 from domain.entities import Task
-from domain.entities.project import ProjectId
-from domain.export import ProjectRelease, ProjectReleaseId, ProjectReleaseService, ProjectReleaseStatus
+from domain.export import (
+    ProjectRelease,
+    ProjectReleaseId,
+    ProjectReleaseService,
+    ProjectReleaseStatus,
+)
 from domain.services import TaskService
 from utils import unwrap_value
 
@@ -90,7 +97,7 @@ class BuildProjectReleaseComposition:
         return "Unexpected error while building project release"
 
     async def __call__(self, project_id: str, release_id: str) -> None:
-        release = await self._release_queries.by_id(ProjectReleaseId(release_id))
+        release = await self._release_queries.by_id(release_id)
         if release is None:
             logger.warning("Release %s was not found", release_id)
             return
@@ -102,7 +109,9 @@ class BuildProjectReleaseComposition:
             )
             return
         if release.status is not ProjectReleaseStatus.CREATED:
-            logger.info("Release %s is already in status %s", release_id, release.status)
+            logger.info(
+                "Release %s is already in status %s", release_id, release.status
+            )
             return
 
         now = self._clock.now()
@@ -111,7 +120,7 @@ class BuildProjectReleaseComposition:
             await self._release_commands.update(processing_release)
 
         try:
-            release_project_id = ProjectId(str(unwrap_value(processing_release.project_id)))
+            release_project_id = processing_release.project_id.value
             tree_snapshot, group_contents = await asyncio.gather(
                 self._tree_snapshots.by_project(release_project_id),
                 self._group_content.by_group(release_project_id),

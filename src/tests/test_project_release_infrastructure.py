@@ -11,12 +11,16 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import cast
 from uuid import UUID
+from y_py import YDoc, encode_state_as_update
 
 from domain.entities.project import ProjectId
 from domain.entities.user import UserId
 from domain.enums import ProjectUnitType
 from domain.export import ProjectReleaseId, ProjectReleaseService
-from infrastructure.export.gateways import SqlAlchemyProjectTreeSnapshotGateway
+from infrastructure.export.gateways import (
+    HttpGroupPublishedContentGateway,
+    SqlAlchemyProjectTreeSnapshotGateway,
+)
 from infrastructure.export.storage import ReleaseStorageKeys, S3ProjectReleaseArtifactGateway
 
 from application.export import ProjectTreeNodeSnapshot, PublishedGroupContent
@@ -206,3 +210,38 @@ def test_project_tree_snapshot_gateway_preserves_tree_order_iteratively() -> Non
         ]
 
     asyncio.run(scenario())
+
+
+def test_http_group_published_content_gateway_decodes_base64_payload() -> None:
+    decoded = HttpGroupPublishedContentGateway._decode_content(
+        raw_content="cHJpbnQoJ2hlbGxvJykK",
+        encoding="base64",
+    )
+    assert decoded == b"print('hello')\n"
+
+
+def test_http_group_published_content_gateway_keeps_plain_text_payload() -> None:
+    decoded = HttpGroupPublishedContentGateway._decode_content(
+        raw_content="print('hello')\n",
+        encoding=None,
+    )
+    assert decoded == b"print('hello')\n"
+
+
+def test_http_group_published_content_gateway_decodes_byte_array_payload() -> None:
+    decoded = HttpGroupPublishedContentGateway._decode_content(
+        raw_content=[112, 114, 105, 110, 116, 40, 39, 104, 105, 39, 41, 10],
+        encoding=None,
+    )
+    assert decoded == b"print('hi')\n"
+
+
+def test_http_group_published_content_gateway_decodes_yjs_document() -> None:
+    doc = YDoc()
+    with doc.begin_transaction() as txn:
+        text = doc.get_text("content")
+        text.extend(txn, "print('hello')\n")
+
+    raw_update = encode_state_as_update(doc)
+    decoded = HttpGroupPublishedContentGateway._decode_document(raw_update)
+    assert decoded == b"print('hello')\n"
