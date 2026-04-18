@@ -7,11 +7,13 @@ from ..value_objects import Uuid4, FileName
 from .base import AggregationRoot
 from .user import UserId
 from .project import ProjectId
+from .project_group import ProjectGroupId
 
 
 class AccessRuleTargetVisitor(Protocol):
     def visit_user[T](self, target: "AccessRuleUserTarget") -> T: ...
     def visit_role[T](self, target: "AccessRuleRoleTarget") -> T: ...
+    def visit_group[T](self, target: "AccessRuleGroupTarget") -> T: ...
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,22 @@ class AccessRuleRoleTarget(AccessRuleTarget):
 
     def __hash__(self):
         return hash(self.role)
+
+
+@dataclass(frozen=True, eq=False)
+class AccessRuleGroupTarget(AccessRuleTarget[ProjectGroupId]):
+    group_id: ProjectGroupId
+
+    def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
+        return visitor.visit_group(self)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AccessRuleGroupTarget):
+            return NotImplemented
+        return self.group_id == other.group_id
+
+    def __hash__(self) -> int:
+        return hash(self.group_id)
 
 
 @dataclass(frozen=True, eq=False)

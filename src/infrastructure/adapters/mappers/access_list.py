@@ -2,8 +2,10 @@ from functools import singledispatchmethod
 from typing import Sequence
 
 from domain.entities import AccessList, AccessRule, AccessListId, ProjectId, UserId
+from domain.entities.project_group import ProjectGroupId
 from domain.entities.access_list import (
     AccessRuleTarget,
+    AccessRuleGroupTarget,
     AccessRuleRoleTarget,
     AccessRuleUserTarget,
 )
@@ -15,6 +17,7 @@ from infrastructure.models import (
     AccessRule as OrmAccessRule,
     AccessRuleUserTarget as OrmUserTarget,
     AccessRuleRoleTarget as OrmRoleTarget,
+    AccessRuleGroupTarget as OrmGroupTarget,
 )
 
 from infrastructure.adapters.access_rule_target_collector import (
@@ -25,6 +28,7 @@ from infrastructure.adapters.access_rule_target_collector import (
 class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
     def __init__(self):
         self._user_names: dict[UserId, Name] = {}
+        self._group_names: dict[ProjectGroupId, Name] = {}
 
     @singledispatchmethod
     def _target_to_domain(self, orm_target: AccessRuleTarget):
@@ -40,6 +44,15 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
     @_target_to_domain.register
     def _(self, orm_target: OrmRoleTarget) -> AccessRuleRoleTarget:
         return AccessRuleRoleTarget(role=orm_target.role)
+
+    @_target_to_domain.register
+    def _(self, orm_target: OrmGroupTarget) -> AccessRuleGroupTarget:
+        gid = ProjectGroupId(str(orm_target.group_id))
+        group_name = (
+            Name(orm_target.group.name) if orm_target.group is not None else Name(".")
+        )
+        self._group_names[gid] = group_name
+        return AccessRuleGroupTarget(gid)
 
     def to_domain(self, dto: OrmAccessList) -> AccessList:
         return AccessList(
@@ -83,6 +96,7 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
         access_lists: list[AccessList] = []
         owners: list[Name | None] = []
         self._user_names = {}
+        self._group_names = {}
 
         for acl, owner in query_result:
             access_lists.append(self.to_domain(acl))
@@ -92,4 +106,5 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
             access_lists=access_lists,
             owners=owners,
             user_targets=self._user_names,
+            group_targets=self._group_names,
         )

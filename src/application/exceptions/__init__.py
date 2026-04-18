@@ -40,3 +40,9 @@ from .release import (
     ProjectReleaseNotFoundError,
     ProjectReleaseNotReadyError,
 )
+from .project_group import (
+    ProjectGroupAlreadyExistsError,
+    ProjectGroupNotFoundError,
+    ProjectGroupNotInProjectError,
+    ProjectGroupParticipantNotInProjectError,
+)

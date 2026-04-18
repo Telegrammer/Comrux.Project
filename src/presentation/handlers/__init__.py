@@ -24,3 +24,9 @@ from .list_project_access_lists import ListProjectAccessListsHandler
 from .delete_access_list import DeleteAccessListHandler
 from .assign_access_list import AssignAccessListHandler
 from .set_project_access import SetProjectAccessHandler
+from .create_project_group import CreateProjectGroupHandler
+from .delete_project_group import DeleteProjectGroupHandler
+from .list_project_groups import ListProjectGroupsHandler
+from .join_project_group import JoinProjectGroupHandler
+from .leave_project_group import LeaveProjectGroupHandler
+from .list_project_group_members import ListProjectGroupMembersHandler

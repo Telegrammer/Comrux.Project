@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from domain.entities.access_list import (
+    AccessRuleGroupTarget,
     AccessRuleUserTarget,
     AccessRuleRoleTarget,
     AccessRuleTargetVisitor,
@@ -18,6 +19,7 @@ from infrastructure.models import (
     TargetValueMixin as OrmRuleTarget,
     AccessRuleUserTarget as OrmUserTarget,
     AccessRuleRoleTarget as OrmRoleTarget,
+    AccessRuleGroupTarget as OrmGroupTarget,
 )
 
 
@@ -28,6 +30,8 @@ class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisitor):
 
         self._users_ids: dict[UUID, int] = {}
         self._seen_users: set[UUID] = set()
+        self._groups_ids: dict[UUID, int] = {}
+        self._seen_groups: set[UUID] = set()
 
     @singledispatchmethod
     def resolve(self, target) -> int:
@@ -41,11 +45,18 @@ class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisitor):
     def _(self, target: AccessRuleUserTarget) -> int:
         return self._users_ids[UUID(target.user_id.value)]
 
+    @resolve.register
+    def _(self, target: AccessRuleGroupTarget) -> int:
+        return self._groups_ids[UUID(target.group_id.value)]
+
     def visit_role(self, target: AccessRuleRoleTarget) -> None:
         self._seen_roles.add(target.role)
 
     def visit_user(self, target: AccessRuleUserTarget) -> None:
         self._seen_users.add(UUID(target.user_id.value))
+
+    def visit_group(self, target: AccessRuleGroupTarget) -> None:
+        self._seen_groups.add(UUID(target.group_id.value))
 
     @staticmethod
     async def _select_existing[valT, ormT: OrmRuleTarget[valT]](
@@ -139,4 +150,11 @@ class SqlAlchemyAccessRuleTargetCollector(AccessRuleTargetVisitor):
             model=OrmUserTarget,
             value_attr=OrmUserTarget.user_id,
             targets_values=self._seen_users,
+        )
+
+        self._groups_ids = await self.define_target_group(
+            session=session,
+            model=OrmGroupTarget,
+            value_attr=OrmGroupTarget.group_id,
+            targets_values=self._seen_groups,
         )

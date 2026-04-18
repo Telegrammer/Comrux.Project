@@ -31,6 +31,12 @@ from application.compositions import (
     DeleteAccessListComposition,
     AssignAccessListComposition,
     SetProjectAccessComposition,
+    CreateProjectGroupComposition,
+    DeleteProjectGroupComposition,
+    ListProjectGroupsComposition,
+    JoinProjectGroupComposition,
+    LeaveProjectGroupComposition,
+    ListProjectGroupMembersComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -60,6 +66,12 @@ from application.usecases import (
     AssignAccessListToDirectoryUsecase,
     AssignAccessListToDocumentUsecase,
     SetProjectAccessUsecase,
+    CreateProjectGroupUsecase,
+    DeleteProjectGroupUsecase,
+    ListProjectGroupsUsecase,
+    JoinProjectGroupUsecase,
+    LeaveProjectGroupUsecase,
+    ListProjectGroupMembersUsecase,
 )
 from application.services import (
     CurrentUserService,
@@ -68,6 +80,7 @@ from application.services import (
     DocumentReadContextService,
     ProjectUnitPermissionService,
     AssignAccessListService,
+    ProjectGroupManageContextService,
 )
 from application.ports import Clock, TaskNotifier
 from application.ports.mappers import (
@@ -88,6 +101,8 @@ from application.ports.gateways import (
     TaskCommandGateway,
     AccessListCommandGateway,
     AccessListQueryGateway,
+    ProjectGroupCommandGateway,
+    ProjectGroupQueryGateway,
 )
 from infrastructure.adapters import (
     TimestampClock,
@@ -102,6 +117,7 @@ from infrastructure.adapters.mappers import (
     SqlAlchemyTaskMapper,
     ProjectUnitNodeMapper,
     SqlAlchemyAccessListMapper,
+    SqlAlchemyProjectGroupMapper,
 )
 from infrastructure.adapters.gateways import (
     HttpContentQueryGateway,
@@ -119,6 +135,8 @@ from infrastructure.adapters.gateways import (
     SqlAlchemyAccessListCommandGateway,
     SqlAlchemyAccessListQueryGateway,
     SqlAclhemyProjectUnitCommandGateway,
+    SqlAlchemyProjectGroupCommandGateway,
+    SqlAlchemyProjectGroupQueryGateway,
 )
 
 
@@ -160,6 +178,7 @@ class ApplicationProvider(Provider):
     directory_manage_serivce = provide(DirectoryManageContextService)
     project_unit_permission_service = provide(ProjectUnitPermissionService)
     access_list_assign_service = provide(AssignAccessListService)
+    project_group_manage_context_service = provide(ProjectGroupManageContextService)
 
     project_mapper = provide(SqlAlchemyProjectMapper)
 
@@ -216,6 +235,15 @@ class ApplicationProvider(Provider):
         source=SqlAlchemyAccessListQueryGateway,
         provides=AccessListQueryGateway,
     )
+    project_group_mapper = provide(SqlAlchemyProjectGroupMapper)
+    project_group_command_gateway = provide(
+        source=SqlAlchemyProjectGroupCommandGateway,
+        provides=ProjectGroupCommandGateway,
+    )
+    project_group_query_gateway = provide(
+        source=SqlAlchemyProjectGroupQueryGateway,
+        provides=ProjectGroupQueryGateway,
+    )
     create_project_usecase = provide(CreateProjectUsecase)
     create_project_composition = provide(CreateProjectComposition)
     list_projects_usecase = provide(ListProjectsUsecase)
@@ -265,3 +293,15 @@ class ApplicationProvider(Provider):
     assign_acl_composition = provide(AssignAccessListComposition)
     set_project_privateness_usecase = provide(SetProjectAccessUsecase)
     set_project_access_composition = provide(SetProjectAccessComposition)
+    create_project_group_usecase = provide(CreateProjectGroupUsecase)
+    create_project_group_composition = provide(CreateProjectGroupComposition)
+    delete_project_group_usecase = provide(DeleteProjectGroupUsecase)
+    delete_project_group_composition = provide(DeleteProjectGroupComposition)
+    list_project_groups_usecase = provide(ListProjectGroupsUsecase)
+    list_project_groups_composition = provide(ListProjectGroupsComposition)
+    join_project_group_usecase = provide(JoinProjectGroupUsecase)
+    join_project_group_composition = provide(JoinProjectGroupComposition)
+    leave_project_group_usecase = provide(LeaveProjectGroupUsecase)
+    leave_project_group_composition = provide(LeaveProjectGroupComposition)
+    list_project_group_members_usecase = provide(ListProjectGroupMembersUsecase)
+    list_project_group_members_composition = provide(ListProjectGroupMembersComposition)

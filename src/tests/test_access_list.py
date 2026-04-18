@@ -14,8 +14,6 @@ from domain.exceptions import DomainFieldError
 from domain.ports.id_generators import AccessListIdGenerator
 from domain.services import AccessListService
 from domain.value_objects import FileName
-
-
 # --- AccessRuleUserTarget ---
 
 
@@ -254,7 +252,14 @@ def mock_access_list_id_generator() -> AccessListIdGenerator:
 
 @pytest.fixture
 def access_list_service(mock_access_list_id_generator: AccessListIdGenerator) -> AccessListService:
-    return AccessListService(id_generator=mock_access_list_id_generator)
+    from domain.ports.access_rule_target_resolution_order import (
+        FixedAccessRuleTargetResolutionOrder,
+    )
+
+    return AccessListService(
+        id_generator=mock_access_list_id_generator,
+        target_order=FixedAccessRuleTargetResolutionOrder(),
+    )
 
 
 def test_access_list_service_creates_access_list(

@@ -9,9 +9,13 @@ from .permissions import (
     UserManagementContext,
     ProjectManagmentContext,
     ProjectContentManagmentContext,
+    ProjectGroupManagmentContext,
     CanDeleteAccessList,
     AccessListManagmentContext,
     CanAssignAccessList,
     CanChangePrivateness,
+    CanManageProjectGroup,
+    CanAddGroupParticipant,
+    ProjectGroupParticipantManagmentContext,
 )
 from .authorize import authorize

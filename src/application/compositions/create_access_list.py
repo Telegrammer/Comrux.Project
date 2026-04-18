@@ -3,6 +3,7 @@ import logging
 
 from domain.entities import AccessRule
 from application.ports import UnitOfWork
+from application.ports.gateways.query_params import ProjectGroupListParams
 from application.usecases import (
     CreateAccessListRequest,
     CreateAccessListUsecase,
@@ -23,13 +24,16 @@ class CreateAccessListComposition:
         self,
         request: CreateAccessListRequest,
         rules: list[AccessRule],
+        project_group_list_params: ProjectGroupListParams,
     ) -> CreateAccessListResponse:
         async with self._unit_of_work:
             logger.info(
                 "Access list for (%s) project creation started",
                 request.project_id.value,
             )
-            response: CreateAccessListResponse = await self._usecase(request, rules)
+            response: CreateAccessListResponse = await self._usecase(
+                request, rules, project_group_list_params
+            )
         logger.info(
             "Access list %s was created by %s",
             response["access_list_id"],

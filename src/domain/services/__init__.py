@@ -5,3 +5,4 @@ from .document import DocumentService
 from .content_ticket import ContentTicketService
 from .task import TaskService
 from .access_list import AccessListService, ResolvedUnitPermissions
+from .project_group import ProjectGroupService

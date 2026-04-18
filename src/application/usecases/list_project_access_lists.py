@@ -9,6 +9,7 @@ from domain.entities import (
     ProjectId,
     Project,
 )
+from domain.entities.project_group import ProjectGroupId
 
 
 from application.models import ProjectAccessListsRead
@@ -19,7 +20,6 @@ from dataclasses import dataclass
 
 @dataclass
 class ListProjectAccessListsRequest:
-
     project_id: ProjectId
 
     @classmethod
@@ -29,14 +29,12 @@ class ListProjectAccessListsRequest:
 
 @dataclass
 class AccessListsQueryResponse:
-
     acess_lists: Sequence[AccessList]
     owners: Sequence[Name]
     user_targets: dict[UserId, Name]
 
 
 class ListProjectAccessListsElementResponse(TypedDict):
-
     id_: AccessListId
     name: FileName
     owner_id: UserId
@@ -59,10 +57,10 @@ class ListProjectAccessListsElementResponse(TypedDict):
 class ListProjectAccessListResponse(TypedDict):
     access_lists: list[ListProjectAccessListsElementResponse]
     user_targets: dict[UserId, Name]
+    group_targets: dict[ProjectGroupId, Name]
 
 
 class ListAccessListsUsecase:
-
     def __init__(
         self, project_queries: ProjectQueryGateway, acl_queries: AccessListQueryGateway
     ):
@@ -89,4 +87,5 @@ class ListAccessListsUsecase:
                 )
             ],
             user_targets=access_lists_info.user_targets,
+            group_targets=access_lists_info.group_targets,
         )

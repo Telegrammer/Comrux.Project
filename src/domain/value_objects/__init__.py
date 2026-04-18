@@ -7,3 +7,4 @@ from .birth_date import BirthDate
 from .name import Name
 from .file_name import FileName
 from .email_address import EmailAddress
+from .color import Color, HexColor

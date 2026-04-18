@@ -21,4 +21,5 @@ from .uuid4_content_id_generator import Uuid4ContentIdGenerator
 from .uuid4_task_id_generator import TaskUuid4Generator
 from .project_unit_visitor import JsonProjectUnitVisitor
 from .uuid4_access_list_id_generator import Uuid4AccessListIdGenerator
+from .uuid4_project_group_id_generator import Uuid4ProjectGroupIdGenerator
 from .access_rule_target_collector import SqlAlchemyAccessRuleTargetCollector

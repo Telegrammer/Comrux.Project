@@ -23,3 +23,9 @@ from .list_project_access_lists import ListProjectAccessListsComposition
 from .delete_access_list import DeleteAccessListComposition
 from .assign_access_list import AssignAccessListComposition
 from .set_project_access import SetProjectAccessComposition
+from .create_project_group import CreateProjectGroupComposition
+from .delete_project_group import DeleteProjectGroupComposition
+from .list_project_groups import ListProjectGroupsComposition
+from .join_project_group import JoinProjectGroupComposition
+from .leave_project_group import LeaveProjectGroupComposition
+from .list_project_group_members import ListProjectGroupMembersComposition

@@ -13,6 +13,7 @@ from presentation.presenters import (
     ContentTicketPresenter,
     JwtContentTicketPresenter,
     PydanticProjectUnitVisitor,
+    AccessListCreateRuleTargetPresenter,
 )
 from presentation.handlers import (
     CreateProjectHandler,
@@ -41,6 +42,12 @@ from presentation.handlers import (
     DeleteAccessListHandler,
     AssignAccessListHandler,
     SetProjectAccessHandler,
+    CreateProjectGroupHandler,
+    DeleteProjectGroupHandler,
+    ListProjectGroupsHandler,
+    JoinProjectGroupHandler,
+    LeaveProjectGroupHandler,
+    ListProjectGroupMembersHandler,
 )
 from presentation.http.middleware.extratctors.auth_info.bearer import (
     BearerAuthInfoExtractor,
@@ -106,11 +113,20 @@ class PresentationProvider(Provider):
     get_user_handler = provide(GetUserHandler)
     list_users_handler = provide(ListUsersHandler)
     get_current_user_handler = provide(GetCurrentUserHandler)
+    access_list_create_rule_target_presenter = provide(
+        AccessListCreateRuleTargetPresenter
+    )
     create_access_list_handler = provide(CreateAccessListHandler)
     list_access_lists_handler = provide(ListProjectAccessListsHandler)
     delete_access_list_handler = provide(DeleteAccessListHandler)
     assign_access_list_handler = provide(AssignAccessListHandler)
     set_project_access_handler = provide(SetProjectAccessHandler)
+    create_project_group_handler = provide(CreateProjectGroupHandler)
+    delete_project_group_handler = provide(DeleteProjectGroupHandler)
+    list_project_groups_handler = provide(ListProjectGroupsHandler)
+    join_project_group_handler = provide(JoinProjectGroupHandler)
+    leave_project_group_handler = provide(LeaveProjectGroupHandler)
+    list_project_group_members_handler = provide(ListProjectGroupMembersHandler)
 
     @provide
     def provide_list_dir_content(

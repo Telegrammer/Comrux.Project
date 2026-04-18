@@ -4,13 +4,22 @@ from .ports import (
     ContentIdGenerator,
     ProjectIdGenerator,
     ContentIdGenerator,
+    ProjectGroupIdGenerator,
     ProjectUnitVisitor,
 )
-from .services import ProjectService, UserService, DocumentService, DirectoryService
+from .services import (
+    ProjectService,
+    UserService,
+    DocumentService,
+    DirectoryService,
+    ProjectGroupService,
+)
 from .entities import (
     Entity,
     Project,
     ProjectId,
+    ProjectGroup,
+    ProjectGroupId,
     User,
     UserId,
     ProjectUnit,

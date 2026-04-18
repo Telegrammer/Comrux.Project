@@ -18,7 +18,7 @@ from presentation.http.controllers.projects.list_access_lists import (
     create_list_acls_router,
 )
 from presentation.models import AccessListRead
-from presentation.models.access_list import AccessRule
+from presentation.models.access_list import UserAccessRule
 
 
 class StubListProjectAccessListsHandler:
@@ -29,7 +29,6 @@ class StubListProjectAccessListsHandler:
         expected_offset: int,
         expected_limit: int,
         expected_filter_name: str,
-        expected_filter_owner: str,
         expected_orders: str,
         expected_access_list_id: UUID4,
         expected_created_by: UUID4,
@@ -42,7 +41,6 @@ class StubListProjectAccessListsHandler:
         self._expected_offset: int = expected_offset
         self._expected_limit: int = expected_limit
         self._expected_filter_name: str = expected_filter_name
-        self._expected_filter_owner: str = expected_filter_owner
         self._expected_orders: str = expected_orders
 
         self._expected_access_list_id: UUID4 = expected_access_list_id
@@ -60,17 +58,14 @@ class StubListProjectAccessListsHandler:
         project_id: UUID4,
         raw_orders: str,
         offset: int,
-        limimt: int,  # controller currently passes `limimt` (typo)
+        limit: int,
     ) -> list[AccessListRead]:
         assert project_id == self._expected_project_id
         assert offset == self._expected_offset
-        assert limimt == self._expected_limit
+        assert limit == self._expected_limit
         assert raw_orders == self._expected_orders
 
-        assert raw_filters == {
-            "name": self._expected_filter_name,
-            "owner": self._expected_filter_owner,
-        }
+        assert raw_filters == {"name": self._expected_filter_name}
 
         return [
             AccessListRead(
@@ -79,8 +74,9 @@ class StubListProjectAccessListsHandler:
                 owner_name=self._expected_owner_name,
                 name=self._expected_acl_name,
                 rules=[
-                    AccessRule(
-                        target=self._expected_rule_target,
+                    UserAccessRule(
+                        target=UUID(self._expected_rule_target),
+                        display_name="User (550e84)",
                         action=self._expected_rule_action,
                         type="ALLOW",
                     )
@@ -117,7 +113,6 @@ def test_list_project_acl_endpoint_delegates_to_handler_and_returns_response() -
     expected_offset: int = 5
     expected_limit: int = 2
     expected_filter_name: str = "My ACL"
-    expected_filter_owner: str = "550e8400-e29b-41d4-a716-446655440099"
     expected_orders: str = '[{"field":"name","direction":"asc"}]'
 
     expected_access_list_id_str: str = "550e8400-e29b-41d4-a716-44665544000f"
@@ -136,7 +131,6 @@ def test_list_project_acl_endpoint_delegates_to_handler_and_returns_response() -
         expected_offset=expected_offset,
         expected_limit=expected_limit,
         expected_filter_name=expected_filter_name,
-        expected_filter_owner=expected_filter_owner,
         expected_orders=expected_orders,
         expected_access_list_id=expected_access_list_id,
         expected_created_by=expected_created_by,
@@ -186,7 +180,6 @@ def test_list_project_acl_endpoint_delegates_to_handler_and_returns_response() -
             offset=expected_offset,
             limit=expected_limit,
             name=expected_filter_name,
-            owner=expected_filter_owner,
             orders=expected_orders,
             ___dishka_request=dishka_request,
         )
@@ -197,7 +190,7 @@ def test_list_project_acl_endpoint_delegates_to_handler_and_returns_response() -
     assert result[0].created_by == expected_created_by
     assert result[0].owner_name == expected_owner_name
     assert result[0].name == expected_acl_name
-    assert result[0].rules[0].target == expected_rule_target
+    assert str(result[0].rules[0].target) == expected_rule_target
     assert result[0].rules[0].action == expected_rule_action
     assert result[0].rules[0].type == "ALLOW"
 

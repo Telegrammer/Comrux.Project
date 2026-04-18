@@ -25,3 +25,7 @@ from .access_list import (
     SqlAlchemyAccessListCommandGateway,
     SqlAlchemyAccessListQueryGateway,
 )
+from .project_group import (
+    SqlAlchemyProjectGroupCommandGateway,
+    SqlAlchemyProjectGroupQueryGateway,
+)

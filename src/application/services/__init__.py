@@ -5,5 +5,9 @@ from .directory_manage_context import (
     DirectoryManageContext,
     DirectoryManageContextService,
 )
+from .project_group_manage_context import (
+    ProjectGroupManageContext,
+    ProjectGroupManageContextService,
+)
 from .access_list_assignment import AssignAccessListService
 from .project_unit_permission import ProjectUnitPermissionService

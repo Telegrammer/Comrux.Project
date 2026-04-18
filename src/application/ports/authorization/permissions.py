@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from domain.entities import User, Project, ProjectId, UserId, AccessList
+from domain.entities import User, Project, UserId, AccessList
 from domain.enums.project_roles import ProjectRole
 from .base import Permission, PermissionContext, AuthorizationResult
 from .role_hierarchy import (
@@ -38,7 +38,6 @@ class CanDeleteProject(Permission[ProjectManagmentContext]):
 
 
 class CanUpdateProject(Permission[ProjectManagmentContext]):
-
     def is_satisfied_by(self, context: ProjectManagmentContext) -> AuthorizationResult:
         subject_id: UserId = context.subject.id_
         subject_role: ProjectRole = context.target.members.get(UserId(subject_id), None)
@@ -56,8 +55,13 @@ class ProjectContentManagmentContext(PermissionContext):
     target: Project
 
 
-class CanManageProjectContent(Permission[ProjectManagmentContext]):
+@dataclass(frozen=True, kw_only=True)
+class ProjectGroupManagmentContext(PermissionContext):
+    subject: User
+    target: Project
 
+
+class CanManageProjectContent(Permission[ProjectManagmentContext]):
     def is_satisfied_by(self, context):
         if UserId(context.subject.id_) not in context.target.members.keys():
             return AuthorizationResult(
@@ -108,7 +112,6 @@ class AccessListManagmentContext(PermissionContext):
 
 
 class CanDeleteAccessList(CanUpdateProject, Permission[AccessListManagmentContext]):
-
     def is_satisfied_by(
         self, context: AccessListManagmentContext
     ) -> AuthorizationResult:
@@ -124,7 +127,7 @@ class CanDeleteAccessList(CanUpdateProject, Permission[AccessListManagmentContex
             return update_permisson
 
         subject_role: ProjectRole | None = context.target_project.members.get(
-            context.subject.id_, None
+            UserId(context.subject.id_), None
         )
         if subject_role == ProjectRole.OWNER:
             return AuthorizationResult(True)
@@ -135,10 +138,76 @@ class CanDeleteAccessList(CanUpdateProject, Permission[AccessListManagmentContex
 
         return AuthorizationResult(
             False,
-            f"""Subject is not owner of access list or project itself""",
+            """Subject is not owner of access list or project itself""",
         )
 
 
 class CanAssignAccessList(CanUpdateProject): ...
 
+
 class CanChangePrivateness(CanDeleteProject): ...
+
+
+class CanManageProjectGroup(CanUpdateProject, Permission[ProjectGroupManagmentContext]):
+    def is_satisfied_by(
+        self, context: ProjectGroupManagmentContext
+    ) -> AuthorizationResult:
+        return CanUpdateProject.is_satisfied_by(
+            self,
+            context=ProjectManagmentContext(
+                subject=context.subject,
+                target=context.target,
+            ),
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProjectGroupParticipantManagmentContext(PermissionContext):
+    subject: User
+    project: Project
+    target: User
+
+
+class CanAddGroupParticipant(
+    CanUpdateProject, Permission[ProjectGroupParticipantManagmentContext]
+):
+    def __init__(
+        self,
+        role_hierarchy: Mapping[ProjectRole, set[ProjectRole]] = SUBORDINATE_ROLES,
+    ) -> None:
+        self._role_hierarchy = role_hierarchy
+
+    def is_satisfied_by(
+        self, context: ProjectGroupParticipantManagmentContext
+    ) -> AuthorizationResult:
+
+        update_permisson: AuthorizationResult = CanUpdateProject.is_satisfied_by(
+            self,
+            context=ProjectManagmentContext(
+                subject=context.subject, target=context.project
+            ),
+        )
+
+        if not update_permisson.success:
+            return update_permisson
+
+        subject_role: ProjectRole = context.project.members.get(
+            UserId(context.subject.id_), None
+        )
+        target_role: ProjectRole = context.project.members.get(
+            UserId(context.target.id_), None
+        )
+
+        if target_role is None:
+            return AuthorizationResult(
+                False,
+                detail="Target user is not a project member",
+            )
+
+        if subject_role in self._role_hierarchy[target_role]:
+            return AuthorizationResult(
+                False,
+                detail="Subject don't have permissions to add target user, because he higher in role hierarchy",
+            )
+
+        return AuthorizationResult(True)

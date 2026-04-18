@@ -21,3 +21,4 @@ from .pagination_visitor import PaginationVisitor
 from .filter_visitor import FilterVisitor
 from .task import TaskListParams
 from .access_list import AccessListsParams
+from .project_group import ProjectGroupFilterField, ProjectGroupListParams

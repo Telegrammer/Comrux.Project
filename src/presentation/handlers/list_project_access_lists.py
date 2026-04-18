@@ -1,5 +1,3 @@
-from pydantic import UUID4
-
 from application.compositions import ListProjectAccessListsComposition
 from application.usecases import (
     ListProjectAccessListsRequest,
@@ -14,12 +12,12 @@ from presentation.presenters import OrdersPresenter, AccessListsPresenter
 from presentation.models.access_list import (
     RoleAccessRule,
     UserAccessRule,
+    GroupAccessRule,
     AccessListRead,
 )
 
 
 class ListProjectAccessListsHandler:
-
     def __init__(
         self,
         usecase: ListProjectAccessListsComposition,
@@ -49,12 +47,16 @@ class ListProjectAccessListsHandler:
             ),
         )
 
-        access_lists, user_targets = response["access_lists"], response["user_targets"]
-        acl_presenter: AccessListsPresenter = AccessListsPresenter(user_targets)
+        access_lists = response["access_lists"]
+        user_targets = response["user_targets"]
+        group_targets = response["group_targets"]
+        acl_presenter: AccessListsPresenter = AccessListsPresenter(
+            user_targets, group_targets
+        )
 
         result: list[AccessListRead] = []
         for acl in access_lists:
-            rules: list[UserAccessRule | RoleAccessRule] = []
+            rules: list[UserAccessRule | RoleAccessRule | GroupAccessRule] = []
             for elem in acl["rules"]:
                 acl_presenter.set_rule(elem.action, elem.is_allow)
                 rules.append(elem.target.accept(acl_presenter))
@@ -63,7 +65,7 @@ class ListProjectAccessListsHandler:
                 AccessListRead(
                     id_=acl["id_"],
                     created_by=acl["owner_id"],
-                    owner_name=f"{acl["owner_name"]} ({acl['owner_id'][:6]})",
+                    owner_name=f"{acl['owner_name']} ({acl['owner_id'][:6]})",
                     name=acl["name"],
                     rules=rules,
                 )

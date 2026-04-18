@@ -1,0 +1,16 @@
+from .base import DomainError
+
+
+class ProjectGroupAdmissionError(DomainError): ...
+
+
+class ProjectGroupOwnerLeaveError(DomainError): ...
+
+
+class ProjectGroupDuplicateParticipantError(DomainError): ...
+
+
+class ProjectGroupParticipantNotInProjectError(DomainError): ...
+
+
+class ProjectGroupOwnerInParticipantsError(DomainError): ...

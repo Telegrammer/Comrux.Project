@@ -2,7 +2,7 @@ from typing import Sequence
 
 from sqlalchemy import select, delete as sql_delete, literal
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, aliased
+from sqlalchemy.orm import selectinload, aliased, joinedload
 
 from domain.entities import AccessList, ProjectId, AccessListId, ProjectUnitId
 from application.models import ProjectAccessListsRead
@@ -17,7 +17,9 @@ from infrastructure.models import (
     AccessRule as OrmAccessRule,
     AccessRuleUserTarget,
     AccessRuleRoleTarget,
+    AccessRuleGroupTarget,
     ProjectUnitNode,
+    ProjectGroup as OrmProjectGroup,
 )
 from infrastructure.adapters.mappers import SqlAlchemyAccessListMapper
 from infrastructure.exceptions.error_aware_decorators import network_error_aware
@@ -88,11 +90,17 @@ class SqlAlchemyAccessListQueryGateway:
             .options(
                 selectinload(OrmAccessList.rules)
                 .selectinload(OrmAccessRule.target)
-                .selectin_polymorphic([AccessRuleUserTarget, AccessRuleRoleTarget]),
+                .selectin_polymorphic(
+                    [AccessRuleUserTarget, AccessRuleRoleTarget, AccessRuleGroupTarget]
+                ),
                 selectinload(OrmAccessList.rules)
                 .selectinload(OrmAccessRule.target.of_type(AccessRuleUserTarget))
                 .joinedload(AccessRuleUserTarget.user)
                 .load_only(OrmUser.name),
+                selectinload(OrmAccessList.rules)
+                .selectinload(OrmAccessRule.target.of_type(AccessRuleGroupTarget))
+                .joinedload(AccessRuleGroupTarget.group)
+                .load_only(OrmProjectGroup.name),
             )
         )
         stmt = self._query_builder.apply(stmt, params, model=OrmAccessList)
@@ -110,7 +118,13 @@ class SqlAlchemyAccessListQueryGateway:
             .options(
                 selectinload(OrmAccessList.rules)
                 .selectinload(OrmAccessRule.target)
-                .selectin_polymorphic([AccessRuleUserTarget, AccessRuleRoleTarget])
+                .selectin_polymorphic(
+                    [AccessRuleUserTarget, AccessRuleRoleTarget, AccessRuleGroupTarget]
+                ),
+                selectinload(OrmAccessList.rules)
+                .selectinload(OrmAccessRule.target.of_type(AccessRuleGroupTarget))
+                .joinedload(AccessRuleGroupTarget.group)
+                .load_only(OrmProjectGroup.name),
             )
         )
         response: OrmAccessList | None = (
@@ -151,7 +165,13 @@ class SqlAlchemyAccessListQueryGateway:
             .options(
                 selectinload(OrmAccessList.rules)
                 .selectinload(OrmAccessRule.target)
-                .selectin_polymorphic([AccessRuleUserTarget, AccessRuleRoleTarget])
+                .selectin_polymorphic(
+                    [AccessRuleUserTarget, AccessRuleRoleTarget, AccessRuleGroupTarget]
+                ),
+                selectinload(OrmAccessList.rules)
+                .selectinload(OrmAccessRule.target.of_type(AccessRuleGroupTarget))
+                .joinedload(AccessRuleGroupTarget.group)
+                .load_only(OrmProjectGroup.name),
             )
             .order_by(tree.c.depth.asc())
         )

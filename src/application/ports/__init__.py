@@ -28,5 +28,7 @@ from .authorization import (
     RoleManagementContext,
     UserManagementContext,
     ProjectManagmentContext,
+    ProjectGroupManagmentContext,
+    CanManageProjectGroup,
     authorize,
 )

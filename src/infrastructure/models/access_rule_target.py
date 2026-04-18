@@ -9,6 +9,9 @@ from .base import Base
 class User: ...
 
 
+class ProjectGroup: ...
+
+
 class AccessRuleTarget(Base):
     id_: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     type_: Mapped[str] = mapped_column(nullable=False)
@@ -80,4 +83,31 @@ class AccessRuleRoleTarget(AccessRuleTarget, TargetValueMixin[ProjectRole]):
 
     __mapper_args__ = {
         "polymorphic_identity": "role",
+    }
+
+
+class AccessRuleGroupTarget(AccessRuleTarget, TargetValueMixin[UUID]):
+    __tablename__ = "access_rule_group_targets"
+    id_: Mapped[int] = mapped_column(
+        ForeignKey("access_rule_targets.id_", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    group_id: Mapped[UUID] = mapped_column(
+        ForeignKey("project_groups.id_", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+
+    @hybrid_property
+    def value(self) -> UUID:
+        return self.group_id
+
+    @value.expression
+    def value(cls):
+        return cls.group_id
+
+    group: Mapped["ProjectGroup"] = relationship(lazy="joined")
+
+    __mapper_args__ = {
+        "polymorphic_identity": "group",
     }

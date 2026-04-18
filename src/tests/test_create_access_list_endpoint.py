@@ -17,7 +17,11 @@ from starlette.requests import Request as StarletteRequest
 from domain.enums import ProjectUnitAction
 from presentation.http.controllers.projects.add_access_list import create_add_acl_router
 from presentation.models import AccessListCreated
-from presentation.models.access_list import AccessListCreate, AccessRule
+from presentation.models.access_list import (
+    AccessListCreate,
+    AccessRuleCreate,
+    AccessRuleTargetUserPayload,
+)
 
 
 class StubCreateAccessListHandler:
@@ -26,14 +30,14 @@ class StubCreateAccessListHandler:
         *,
         expected_project_id: UUID4,
         expected_name: str,
-        expected_rule_target: str,
+        expected_rule_user_id: UUID4,
         expected_rule_action: ProjectUnitAction,
         expected_access_list_id: UUID4,
         expected_created_by: UUID4,
     ) -> None:
         self._expected_project_id: UUID4 = expected_project_id
         self._expected_name: str = expected_name
-        self._expected_rule_target: str = expected_rule_target
+        self._expected_rule_user_id: UUID4 = expected_rule_user_id
         self._expected_rule_action: ProjectUnitAction = expected_rule_action
         self._expected_access_list_id: UUID4 = expected_access_list_id
         self._expected_created_by: UUID4 = expected_created_by
@@ -42,13 +46,15 @@ class StubCreateAccessListHandler:
         self,
         request: AccessListCreate,
         project_id: UUID4,
+        **_: object,
     ) -> AccessListCreated:
         # Контракт контроллера: handler вызывается как `handler(project_id, request_body)`.
         assert project_id == self._expected_project_id
         assert request.name == self._expected_name
         assert len(request.rules) == 1
-        rule = request.rules[0]
-        assert rule.target == self._expected_rule_target
+        rule: AccessRuleCreate = request.rules[0]
+        assert isinstance(rule.target, AccessRuleTargetUserPayload)
+        assert rule.target.user_id == self._expected_rule_user_id
         assert rule.action == self._expected_rule_action
         assert rule.type == "ALLOW"
 
@@ -87,18 +93,19 @@ def test_create_access_list_endpoint_delegates_to_handler_and_returns_response()
     expected_project_id_str: str = "550e8400-e29b-41d4-a716-446655440000"
     expected_access_list_id_str: str = "550e8400-e29b-41d4-a716-44665544000f"
     expected_created_by_str: str = "550e8400-e29b-41d4-a716-446655440010"
-    expected_rule_target: str = "550e8400-e29b-41d4-a716-446655440020"
+    expected_rule_user_id_str: str = "550e8400-e29b-41d4-a716-446655440020"
     expected_name: str = "Test ACL"
     expected_rule_action: ProjectUnitAction = ProjectUnitAction.READ
 
     expected_project_id: UUID4 = UUID(expected_project_id_str)  # type: ignore[assignment]
     expected_access_list_id: UUID4 = UUID(expected_access_list_id_str)  # type: ignore[assignment]
     expected_created_by: UUID4 = UUID(expected_created_by_str)  # type: ignore[assignment]
+    expected_rule_user_id: UUID4 = UUID(expected_rule_user_id_str)  # type: ignore[assignment]
 
     stub_handler: StubCreateAccessListHandler = StubCreateAccessListHandler(
         expected_project_id=expected_project_id,
         expected_name=expected_name,
-        expected_rule_target=expected_rule_target,
+        expected_rule_user_id=expected_rule_user_id,
         expected_rule_action=expected_rule_action,
         expected_access_list_id=expected_access_list_id,
         expected_created_by=expected_created_by,
@@ -123,8 +130,8 @@ def test_create_access_list_endpoint_delegates_to_handler_and_returns_response()
     request_body: AccessListCreate = AccessListCreate(
         name=expected_name,
         rules=[
-            AccessRule(
-                target=expected_rule_target,
+            AccessRuleCreate(
+                target=AccessRuleTargetUserPayload(user_id=expected_rule_user_id),
                 action=expected_rule_action,
                 type="ALLOW",
             ),
@@ -164,4 +171,3 @@ def test_create_access_list_endpoint_delegates_to_handler_and_returns_response()
 
     assert result.id_ == expected_access_list_id
     assert result.created_by == expected_created_by
-

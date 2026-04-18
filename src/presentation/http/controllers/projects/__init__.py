@@ -22,6 +22,12 @@ from .assign_directory_access_list import create_assign_directory_acl_router
 from .assign_document_access_list import create_assign_document_acl_router
 from .set_project_access import create_set_project_access_router
 from .releases import create_project_release_router
+from .create_group import create_create_group_router
+from .list_groups import create_list_groups_router
+from .delete_group import create_delete_group_router
+from .join_group import create_join_group_router
+from .leave_group import create_leave_group_router
+from .list_group_members import create_list_group_members_router
 
 projects_router = APIRouter(prefix="/project", tags=["project"])
 projects_router.include_router(create_create_project_router())
@@ -33,6 +39,12 @@ projects_router.include_router(create_add_member_router())
 projects_router.include_router(create_list_members_router())
 projects_router.include_router(create_list_acls_router())
 projects_router.include_router(create_set_project_access_router())
+projects_router.include_router(create_create_group_router())
+projects_router.include_router(create_list_groups_router())
+projects_router.include_router(create_delete_group_router())
+projects_router.include_router(create_join_group_router())
+projects_router.include_router(create_leave_group_router())
+projects_router.include_router(create_list_group_members_router())
 projects_router.include_router(create_remove_member_router())
 projects_router.include_router(create_set_role_router())
 projects_router.include_router(create_add_acl_router())

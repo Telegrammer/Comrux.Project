@@ -7,11 +7,20 @@ from dishka import Provider, provide, Scope, from_context
 from setup.config import Settings
 
 
-from domain import ProjectService, UserService, DirectoryService, DocumentService
+from domain import (
+    ProjectService,
+    UserService,
+    DirectoryService,
+    DocumentService,
+    ProjectGroupService,
+)
 from domain.services import ContentTicketService, TaskService, AccessListService
 from domain.export import ProjectReleaseService
 from domain.export.ports import ProjectReleaseIdGenerator
 from domain.policies import BirthDatePolicy, ContentTicketValidityPolicy, TaskPolicy
+from domain.ports.access_rule_target_resolution_order import (
+    FixedAccessRuleTargetResolutionOrder,
+)
 from domain.ports import (
     ProjectIdGenerator,
     UserIdGenerator,
@@ -20,6 +29,8 @@ from domain.ports import (
     ContentIdGenerator,
     TaskIdGenerator,
     AccessListIdGenerator,
+    ProjectGroupIdGenerator,
+    AccessRuleTargetResolutionOrder,
 )
 from infrastructure.adapters import (
     Uuid4ProjectIdGenerator,
@@ -27,6 +38,7 @@ from infrastructure.adapters import (
     Uuid4ProjectUnitIdGenerator,
     Uuid4ContentIdGenerator,
     Uuid4AccessListIdGenerator,
+    Uuid4ProjectGroupIdGenerator,
     TaskUuid4Generator,
     JsonProjectUnitVisitor,
 )
@@ -61,6 +73,15 @@ class DomainProvider(Provider):
     access_list_id_generator = provide(
         source=Uuid4AccessListIdGenerator, provides=AccessListIdGenerator
     )
+    project_group_id_generator = provide(
+        source=Uuid4ProjectGroupIdGenerator, provides=ProjectGroupIdGenerator
+    )
+
+    @provide
+    def provide_access_rule_target_resolution_order(
+        self,
+    ) -> AccessRuleTargetResolutionOrder:
+        return FixedAccessRuleTargetResolutionOrder()
 
     @provide
     def provide_birthdate_policy(self) -> BirthDatePolicy:
@@ -85,3 +106,4 @@ class DomainProvider(Provider):
     task_service = provide(TaskService)
     project_release_service = provide(ProjectReleaseService)
     acl_service = provide(AccessListService)
+    project_group_service = provide(ProjectGroupService)

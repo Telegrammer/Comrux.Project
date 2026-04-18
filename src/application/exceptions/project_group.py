@@ -1,0 +1,13 @@
+from .base import UsecaseError
+
+
+class ProjectGroupAlreadyExistsError(UsecaseError): ...
+
+
+class ProjectGroupNotFoundError(UsecaseError): ...
+
+
+class ProjectGroupNotInProjectError(UsecaseError): ...
+
+
+class ProjectGroupParticipantNotInProjectError(UsecaseError): ...

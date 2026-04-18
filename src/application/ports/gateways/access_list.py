@@ -1,14 +1,12 @@
 from abc import abstractmethod
 from typing import Protocol, Sequence
 from domain.entities import AccessList, ProjectId, AccessListId, ProjectUnitId
-from domain.value_objects import Name
 
 from application.models import ProjectAccessListsRead
 from .query_params import AccessListsParams
 
 
 class AccessListCommandGateway(Protocol):
-
     @abstractmethod
     async def add(self, access_list: AccessList) -> None:
         raise NotImplementedError
@@ -23,7 +21,6 @@ class AccessListCommandGateway(Protocol):
 
 
 class AccessListQueryGateway(Protocol):
-
     @abstractmethod
     async def by_project(
         self, project_id: ProjectId, params: AccessListsParams
