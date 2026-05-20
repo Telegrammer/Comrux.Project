@@ -10,46 +10,46 @@ class AccessRule(BaseModel):
     type: Literal["ALLOW", "DENY"]
 
 
-class AccessRuleTargetUserPayload(BaseModel):
+class AccessRuleResponsibleUserPayload(BaseModel):
     kind: Literal["user"] = "user"
     user_id: UUID4
 
 
-class AccessRuleTargetRolePayload(BaseModel):
+class AccessRuleResponsibleRolePayload(BaseModel):
     kind: Literal["role"] = "role"
     role: ProjectRole
 
 
-class AccessRuleTargetGroupPayload(BaseModel):
+class AccessRuleResponsibleGroupPayload(BaseModel):
     kind: Literal["group"] = "group"
     group_id: UUID4
 
 
-AccessRuleTargetPayload = Annotated[
+AccessRuleResponsiblePayload = Annotated[
     Union[
-        AccessRuleTargetUserPayload,
-        AccessRuleTargetRolePayload,
-        AccessRuleTargetGroupPayload,
+        AccessRuleResponsibleUserPayload,
+        AccessRuleResponsibleRolePayload,
+        AccessRuleResponsibleGroupPayload,
     ],
     Field(discriminator="kind"),
 ]
 
 
 class AccessRuleCreate(AccessRule):
-    target: AccessRuleTargetPayload
+    responsible: AccessRuleResponsiblePayload
 
 
 class UserAccessRule(AccessRule):
-    target: UUID4
+    responsible: UUID4
     display_name: str
 
 
 class RoleAccessRule(AccessRule):
-    target: ProjectRole
+    responsible: ProjectRole
 
 
 class GroupAccessRule(AccessRule):
-    target: UUID4
+    responsible: UUID4
     display_name: str
 
 

@@ -48,10 +48,10 @@ class ListProjectAccessListsHandler:
         )
 
         access_lists = response["access_lists"]
-        user_targets = response["user_targets"]
-        group_targets = response["group_targets"]
+        user_responsibles = response["user_responsibles"]
+        group_responsibles = response["group_responsibles"]
         acl_presenter: AccessListsPresenter = AccessListsPresenter(
-            user_targets, group_targets
+            user_responsibles, group_responsibles
         )
 
         result: list[AccessListRead] = []
@@ -59,7 +59,7 @@ class ListProjectAccessListsHandler:
             rules: list[UserAccessRule | RoleAccessRule | GroupAccessRule] = []
             for elem in acl["rules"]:
                 acl_presenter.set_rule(elem.action, elem.is_allow)
-                rules.append(elem.target.accept(acl_presenter))
+                rules.append(elem.responsible.accept(acl_presenter))
 
             result.append(
                 AccessListRead(

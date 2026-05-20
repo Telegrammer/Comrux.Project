@@ -8,3 +8,8 @@ from .project_group import (
     ProjectGroupParticipantNotInProjectError,
     ProjectGroupOwnerInParticipantsError,
 )
+from .project_task import (
+    ProjectTaskAssignmentForbiddenError,
+    ProjectTaskInvalidStatusTransitionError,
+    ProjectTaskAssigneeContextError,
+)

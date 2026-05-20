@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_Role_Based_Basic"
+                  targetNamespace="http://comrux.local/bpmn/role-based-basic">
+
+  <bpmn:collaboration id="Collaboration_Role_Based_Basic">
+    <bpmn:participant id="Participant_UserProject"
+                      name="Пользователь в проекте"
+                      processRef="Process_UserProject"/>
+  </bpmn:collaboration>
+
+  <bpmn:process id="Process_UserProject"
+                name="Выполнять ролевые сценарии в проекте"
+                isExecutable="false">
+
+    <bpmn:laneSet id="LaneSet_Roles">
+      <bpmn:lane id="Lane_Member" name="Участник">
+        <bpmn:flowNodeRef>Start_Process</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_OpenProject</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_RoleChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_GetPlannedWork</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_MemberParallelSplit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_WorkWithContent</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ChatCommunication</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_MemberParallelJoin</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Member</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_Curator" name="Куратор">
+        <bpmn:flowNodeRef>Gateway_CuratorActionChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ManageMembers</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AssignRolesAndAccess</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PlanTasks</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CuratorEditContent</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CuratorDiscussTasks</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Curator</bpmn:flowNodeRef>
+      </bpmn:lane>
+
+      <bpmn:lane id="Lane_Owner" name="Владелец">
+        <bpmn:flowNodeRef>Gateway_OwnerActionChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_OwnerRunCuratorCycle</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_SetProjectPrivacy</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_TransferOwnership</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_InitiateRelease</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_Owner</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="Start_Process" name="Начать работу"/>
+    <bpmn:task id="Task_OpenProject" name="Аутентифицироваться и открыть/создать проект"/>
+    <bpmn:exclusiveGateway id="Gateway_RoleChoice" name="Выбрать ролевой сценарий"/>
+
+    <bpmn:task id="Task_GetPlannedWork" name="Получить и уточнить план работ"/>
+    <bpmn:parallelGateway id="Gateway_MemberParallelSplit" name="Параллельно выполнить"/>
+    <bpmn:task id="Task_WorkWithContent" name="Редактировать структуру и контент"/>
+    <bpmn:task id="Task_ChatCommunication" name="Согласовывать изменения в чате"/>
+    <bpmn:parallelGateway id="Gateway_MemberParallelJoin" name="Синхронизировать результаты"/>
+    <bpmn:endEvent id="End_Member" name="Завершить цикл участника"/>
+
+    <bpmn:eventBasedGateway id="Gateway_CuratorActionChoice" name="Выбрать действие куратора"/>
+    <bpmn:task id="Task_ManageMembers" name="Добавлять и исключать участников"/>
+    <bpmn:task id="Task_AssignRolesAndAccess" name="Назначать роли и настраивать ACL"/>
+    <bpmn:task id="Task_PlanTasks" name="Планировать и уточнять задачи"/>
+    <bpmn:task id="Task_CuratorEditContent" name="Редактировать структуру и контент"/>
+    <bpmn:task id="Task_CuratorDiscussTasks" name="Обсуждать задачи и изменения в чате"/>
+    <bpmn:endEvent id="End_Curator" name="Завершить цикл куратора"/>
+
+    <bpmn:eventBasedGateway id="Gateway_OwnerActionChoice" name="Выбрать действие владельца"/>
+    <bpmn:task id="Task_OwnerRunCuratorCycle" name="Выполнить кураторский цикл"/>
+    <bpmn:task id="Task_SetProjectPrivacy" name="Изменить приватность проекта"/>
+    <bpmn:task id="Task_TransferOwnership" name="Передать роль владельца"/>
+    <bpmn:task id="Task_InitiateRelease" name="Запустить сборку версии проекта"/>
+    <bpmn:endEvent id="End_Owner" name="Завершить цикл владельца"/>
+
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_Process" targetRef="Task_OpenProject"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_OpenProject" targetRef="Gateway_RoleChoice"/>
+
+    <bpmn:sequenceFlow id="Flow_Member_1" sourceRef="Gateway_RoleChoice" targetRef="Task_GetPlannedWork">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[role == "MEMBER"]]></bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Member_2" sourceRef="Task_GetPlannedWork" targetRef="Gateway_MemberParallelSplit"/>
+    <bpmn:sequenceFlow id="Flow_Member_3" sourceRef="Gateway_MemberParallelSplit" targetRef="Task_WorkWithContent"/>
+    <bpmn:sequenceFlow id="Flow_Member_4" sourceRef="Gateway_MemberParallelSplit" targetRef="Task_ChatCommunication"/>
+    <bpmn:sequenceFlow id="Flow_Member_5" sourceRef="Task_WorkWithContent" targetRef="Gateway_MemberParallelJoin"/>
+    <bpmn:sequenceFlow id="Flow_Member_6" sourceRef="Task_ChatCommunication" targetRef="Gateway_MemberParallelJoin"/>
+    <bpmn:sequenceFlow id="Flow_Member_7" sourceRef="Gateway_MemberParallelJoin" targetRef="End_Member"/>
+
+    <bpmn:sequenceFlow id="Flow_Curator_1" sourceRef="Gateway_RoleChoice" targetRef="Gateway_CuratorActionChoice">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[role == "CURATOR"]]></bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Curator_2" sourceRef="Gateway_CuratorActionChoice" targetRef="Task_ManageMembers"/>
+    <bpmn:sequenceFlow id="Flow_Curator_3" sourceRef="Gateway_CuratorActionChoice" targetRef="Task_AssignRolesAndAccess"/>
+    <bpmn:sequenceFlow id="Flow_Curator_4" sourceRef="Gateway_CuratorActionChoice" targetRef="Task_PlanTasks"/>
+    <bpmn:sequenceFlow id="Flow_Curator_5" sourceRef="Gateway_CuratorActionChoice" targetRef="Task_CuratorEditContent"/>
+    <bpmn:sequenceFlow id="Flow_Curator_6" sourceRef="Gateway_CuratorActionChoice" targetRef="Task_CuratorDiscussTasks"/>
+    <bpmn:sequenceFlow id="Flow_Curator_7" sourceRef="Task_ManageMembers" targetRef="End_Curator"/>
+    <bpmn:sequenceFlow id="Flow_Curator_8" sourceRef="Task_AssignRolesAndAccess" targetRef="End_Curator"/>
+    <bpmn:sequenceFlow id="Flow_Curator_9" sourceRef="Task_PlanTasks" targetRef="End_Curator"/>
+    <bpmn:sequenceFlow id="Flow_Curator_10" sourceRef="Task_CuratorEditContent" targetRef="End_Curator"/>
+    <bpmn:sequenceFlow id="Flow_Curator_11" sourceRef="Task_CuratorDiscussTasks" targetRef="End_Curator"/>
+
+    <bpmn:sequenceFlow id="Flow_Owner_1" sourceRef="Gateway_RoleChoice" targetRef="Gateway_OwnerActionChoice">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression"><![CDATA[role == "OWNER"]]></bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Owner_2" sourceRef="Gateway_OwnerActionChoice" targetRef="Task_OwnerRunCuratorCycle"/>
+    <bpmn:sequenceFlow id="Flow_Owner_3" sourceRef="Gateway_OwnerActionChoice" targetRef="Task_SetProjectPrivacy"/>
+    <bpmn:sequenceFlow id="Flow_Owner_4" sourceRef="Gateway_OwnerActionChoice" targetRef="Task_TransferOwnership"/>
+    <bpmn:sequenceFlow id="Flow_Owner_5" sourceRef="Gateway_OwnerActionChoice" targetRef="Task_InitiateRelease"/>
+    <bpmn:sequenceFlow id="Flow_Owner_6" sourceRef="Task_OwnerRunCuratorCycle" targetRef="End_Owner"/>
+    <bpmn:sequenceFlow id="Flow_Owner_7" sourceRef="Task_SetProjectPrivacy" targetRef="End_Owner"/>
+    <bpmn:sequenceFlow id="Flow_Owner_8" sourceRef="Task_TransferOwnership" targetRef="End_Owner"/>
+    <bpmn:sequenceFlow id="Flow_Owner_9" sourceRef="Task_InitiateRelease" targetRef="End_Owner"/>
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Role_Based_Basic">
+    <bpmndi:BPMNPlane id="BPMNPlane_Role_Based_Basic" bpmnElement="Collaboration_Role_Based_Basic">
+      <bpmndi:BPMNShape id="Participant_UserProject_di" bpmnElement="Participant_UserProject" isHorizontal="true">
+        <dc:Bounds x="70" y="70" width="2320" height="560"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Lane_Member_di" bpmnElement="Lane_Member" isHorizontal="true">
+        <dc:Bounds x="100" y="70" width="2290" height="185"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Curator_di" bpmnElement="Lane_Curator" isHorizontal="true">
+        <dc:Bounds x="100" y="255" width="2290" height="185"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Owner_di" bpmnElement="Lane_Owner" isHorizontal="true">
+        <dc:Bounds x="100" y="440" width="2290" height="190"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Start_Process_di" bpmnElement="Start_Process">
+        <dc:Bounds x="145" y="148" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_OpenProject_di" bpmnElement="Task_OpenProject">
+        <dc:Bounds x="215" y="124" width="200" height="84"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_RoleChoice_di" bpmnElement="Gateway_RoleChoice" isMarkerVisible="true">
+        <dc:Bounds x="465" y="141" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_GetPlannedWork_di" bpmnElement="Task_GetPlannedWork">
+        <dc:Bounds x="570" y="92" width="190" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_MemberParallelSplit_di" bpmnElement="Gateway_MemberParallelSplit" isMarkerVisible="true">
+        <dc:Bounds x="800" y="141" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_WorkWithContent_di" bpmnElement="Task_WorkWithContent">
+        <dc:Bounds x="910" y="86" width="220" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ChatCommunication_di" bpmnElement="Task_ChatCommunication">
+        <dc:Bounds x="910" y="183" width="220" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_MemberParallelJoin_di" bpmnElement="Gateway_MemberParallelJoin" isMarkerVisible="true">
+        <dc:Bounds x="1180" y="141" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Member_di" bpmnElement="End_Member">
+        <dc:Bounds x="1310" y="148" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_CuratorActionChoice_di" bpmnElement="Gateway_CuratorActionChoice" isMarkerVisible="true">
+        <dc:Bounds x="600" y="318" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ManageMembers_di" bpmnElement="Task_ManageMembers">
+        <dc:Bounds x="720" y="260" width="200" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AssignRolesAndAccess_di" bpmnElement="Task_AssignRolesAndAccess">
+        <dc:Bounds x="940" y="260" width="230" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PlanTasks_di" bpmnElement="Task_PlanTasks">
+        <dc:Bounds x="1190" y="260" width="200" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CuratorEditContent_di" bpmnElement="Task_CuratorEditContent">
+        <dc:Bounds x="720" y="350" width="230" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CuratorDiscussTasks_di" bpmnElement="Task_CuratorDiscussTasks">
+        <dc:Bounds x="970" y="350" width="280" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Curator_di" bpmnElement="End_Curator">
+        <dc:Bounds x="1490" y="325" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_OwnerActionChoice_di" bpmnElement="Gateway_OwnerActionChoice" isMarkerVisible="true">
+        <dc:Bounds x="600" y="512" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_OwnerRunCuratorCycle_di" bpmnElement="Task_OwnerRunCuratorCycle">
+        <dc:Bounds x="720" y="465" width="220" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SetProjectPrivacy_di" bpmnElement="Task_SetProjectPrivacy">
+        <dc:Bounds x="720" y="555" width="220" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_TransferOwnership_di" bpmnElement="Task_TransferOwnership">
+        <dc:Bounds x="970" y="465" width="220" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_InitiateRelease_di" bpmnElement="Task_InitiateRelease">
+        <dc:Bounds x="970" y="555" width="220" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Owner_di" bpmnElement="End_Owner">
+        <dc:Bounds x="1500" y="519" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="181" y="166"/>
+        <di:waypoint x="215" y="166"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="415" y="166"/>
+        <di:waypoint x="465" y="166"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Member_1_di" bpmnElement="Flow_Member_1">
+        <di:waypoint x="515" y="166"/>
+        <di:waypoint x="570" y="132"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Member_2_di" bpmnElement="Flow_Member_2">
+        <di:waypoint x="760" y="132"/>
+        <di:waypoint x="800" y="166"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Member_3_di" bpmnElement="Flow_Member_3">
+        <di:waypoint x="850" y="166"/>
+        <di:waypoint x="910" y="126"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Member_4_di" bpmnElement="Flow_Member_4">
+        <di:waypoint x="850" y="166"/>
+        <di:waypoint x="910" y="223"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Member_5_di" bpmnElement="Flow_Member_5">
+        <di:waypoint x="1130" y="126"/>
+        <di:waypoint x="1180" y="166"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Member_6_di" bpmnElement="Flow_Member_6">
+        <di:waypoint x="1130" y="223"/>
+        <di:waypoint x="1180" y="166"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Member_7_di" bpmnElement="Flow_Member_7">
+        <di:waypoint x="1230" y="166"/>
+        <di:waypoint x="1310" y="166"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Curator_1_di" bpmnElement="Flow_Curator_1">
+        <di:waypoint x="490" y="191"/>
+        <di:waypoint x="490" y="343"/>
+        <di:waypoint x="600" y="343"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_2_di" bpmnElement="Flow_Curator_2">
+        <di:waypoint x="650" y="343"/>
+        <di:waypoint x="720" y="300"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_3_di" bpmnElement="Flow_Curator_3">
+        <di:waypoint x="650" y="343"/>
+        <di:waypoint x="940" y="300"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_4_di" bpmnElement="Flow_Curator_4">
+        <di:waypoint x="650" y="343"/>
+        <di:waypoint x="1190" y="300"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_5_di" bpmnElement="Flow_Curator_5">
+        <di:waypoint x="650" y="343"/>
+        <di:waypoint x="720" y="390"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_6_di" bpmnElement="Flow_Curator_6">
+        <di:waypoint x="650" y="343"/>
+        <di:waypoint x="970" y="390"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_7_di" bpmnElement="Flow_Curator_7">
+        <di:waypoint x="920" y="300"/>
+        <di:waypoint x="1490" y="343"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_8_di" bpmnElement="Flow_Curator_8">
+        <di:waypoint x="1170" y="300"/>
+        <di:waypoint x="1490" y="343"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_9_di" bpmnElement="Flow_Curator_9">
+        <di:waypoint x="1390" y="300"/>
+        <di:waypoint x="1490" y="343"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_10_di" bpmnElement="Flow_Curator_10">
+        <di:waypoint x="950" y="390"/>
+        <di:waypoint x="1490" y="343"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Curator_11_di" bpmnElement="Flow_Curator_11">
+        <di:waypoint x="1250" y="390"/>
+        <di:waypoint x="1490" y="343"/>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_Owner_1_di" bpmnElement="Flow_Owner_1">
+        <di:waypoint x="490" y="191"/>
+        <di:waypoint x="490" y="537"/>
+        <di:waypoint x="600" y="537"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Owner_2_di" bpmnElement="Flow_Owner_2">
+        <di:waypoint x="650" y="537"/>
+        <di:waypoint x="720" y="505"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Owner_3_di" bpmnElement="Flow_Owner_3">
+        <di:waypoint x="650" y="537"/>
+        <di:waypoint x="720" y="595"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Owner_4_di" bpmnElement="Flow_Owner_4">
+        <di:waypoint x="650" y="537"/>
+        <di:waypoint x="970" y="505"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Owner_5_di" bpmnElement="Flow_Owner_5">
+        <di:waypoint x="650" y="537"/>
+        <di:waypoint x="970" y="595"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Owner_6_di" bpmnElement="Flow_Owner_6">
+        <di:waypoint x="940" y="505"/>
+        <di:waypoint x="1500" y="537"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Owner_7_di" bpmnElement="Flow_Owner_7">
+        <di:waypoint x="940" y="595"/>
+        <di:waypoint x="1500" y="537"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Owner_8_di" bpmnElement="Flow_Owner_8">
+        <di:waypoint x="1190" y="505"/>
+        <di:waypoint x="1500" y="537"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Owner_9_di" bpmnElement="Flow_Owner_9">
+        <di:waypoint x="1190" y="595"/>
+        <di:waypoint x="1500" y="537"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>

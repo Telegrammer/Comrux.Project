@@ -15,5 +15,6 @@ from .content import ContentQueryGateway
 from .document import DocumentCommandGateway, DocumentQueryGateway
 from .project_unit import ProjectUnitQueryGateway, ProjectUnitCommandGateway
 from .task import TaskCommandGateway, TaskQueryGateway
+from .project_task import ProjectTaskCommandGateway, ProjectTaskQueryGateway
 from .access_list import AccessListCommandGateway, AccessListQueryGateway
 from .project_group import ProjectGroupCommandGateway, ProjectGroupQueryGateway

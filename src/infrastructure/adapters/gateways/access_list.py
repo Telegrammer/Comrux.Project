@@ -2,7 +2,7 @@ from typing import Sequence
 
 from sqlalchemy import select, delete as sql_delete, literal
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, aliased, joinedload
+from sqlalchemy.orm import selectinload, aliased
 
 from domain.entities import AccessList, ProjectId, AccessListId, ProjectUnitId
 from application.models import ProjectAccessListsRead
@@ -15,9 +15,9 @@ from infrastructure.models import (
     AccessList as OrmAccessList,
     User as OrmUser,
     AccessRule as OrmAccessRule,
-    AccessRuleUserTarget,
-    AccessRuleRoleTarget,
-    AccessRuleGroupTarget,
+    AccessRuleUserResponsible,
+    AccessRuleRoleResponsible,
+    AccessRuleGroupResponsible,
     ProjectUnitNode,
     ProjectGroup as OrmProjectGroup,
 )
@@ -26,14 +26,11 @@ from infrastructure.exceptions.error_aware_decorators import network_error_aware
 from infrastructure.exceptions.asyncpg_unique_error_handler import (
     unique_violation_aware,
 )
-from infrastructure.adapters.access_rule_target_collector import (
-    SqlAlchemyAccessRuleTargetCollector,
-)
+from infrastructure.adapters.responsible_collector import SqlAlchemyResponsibleCollector
 from infrastructure.adapters.gateways import SQLAlchemyQueryBuilder
 
 
 class SqlAlchemyAccessListCommandGateway:
-
     def __init__(
         self,
         session: AsyncSession,
@@ -49,11 +46,11 @@ class SqlAlchemyAccessListCommandGateway:
         )
     )
     async def add(self, access_list: AccessList) -> None:
-        collector = SqlAlchemyAccessRuleTargetCollector()
+        collector = SqlAlchemyResponsibleCollector()
         for rule in access_list.rules:
-            rule.target.accept(collector)
+            rule.responsible.accept(collector)
 
-        await collector.persist_targets(self._session)
+        await collector.persist_responsibles(self._session)
         dto: OrmAccessList = self._mapper.to_dto(access_list, collector)
 
         self._session.add(dto)
@@ -67,7 +64,6 @@ class SqlAlchemyAccessListCommandGateway:
 
 
 class SqlAlchemyAccessListQueryGateway:
-
     def __init__(
         self,
         session: AsyncSession,
@@ -89,17 +85,25 @@ class SqlAlchemyAccessListQueryGateway:
             .where(OrmAccessList.project_id == project_id)
             .options(
                 selectinload(OrmAccessList.rules)
-                .selectinload(OrmAccessRule.target)
+                .selectinload(OrmAccessRule.responsible)
                 .selectin_polymorphic(
-                    [AccessRuleUserTarget, AccessRuleRoleTarget, AccessRuleGroupTarget]
+                    [
+                        AccessRuleUserResponsible,
+                        AccessRuleRoleResponsible,
+                        AccessRuleGroupResponsible,
+                    ]
                 ),
                 selectinload(OrmAccessList.rules)
-                .selectinload(OrmAccessRule.target.of_type(AccessRuleUserTarget))
-                .joinedload(AccessRuleUserTarget.user)
+                .selectinload(
+                    OrmAccessRule.responsible.of_type(AccessRuleUserResponsible)
+                )
+                .joinedload(AccessRuleUserResponsible.user)
                 .load_only(OrmUser.name),
                 selectinload(OrmAccessList.rules)
-                .selectinload(OrmAccessRule.target.of_type(AccessRuleGroupTarget))
-                .joinedload(AccessRuleGroupTarget.group)
+                .selectinload(
+                    OrmAccessRule.responsible.of_type(AccessRuleGroupResponsible)
+                )
+                .joinedload(AccessRuleGroupResponsible.group)
                 .load_only(OrmProjectGroup.name),
             )
         )
@@ -117,13 +121,19 @@ class SqlAlchemyAccessListQueryGateway:
             .where(OrmAccessList.id_ == access_list_id)
             .options(
                 selectinload(OrmAccessList.rules)
-                .selectinload(OrmAccessRule.target)
+                .selectinload(OrmAccessRule.responsible)
                 .selectin_polymorphic(
-                    [AccessRuleUserTarget, AccessRuleRoleTarget, AccessRuleGroupTarget]
+                    [
+                        AccessRuleUserResponsible,
+                        AccessRuleRoleResponsible,
+                        AccessRuleGroupResponsible,
+                    ]
                 ),
                 selectinload(OrmAccessList.rules)
-                .selectinload(OrmAccessRule.target.of_type(AccessRuleGroupTarget))
-                .joinedload(AccessRuleGroupTarget.group)
+                .selectinload(
+                    OrmAccessRule.responsible.of_type(AccessRuleGroupResponsible)
+                )
+                .joinedload(AccessRuleGroupResponsible.group)
                 .load_only(OrmProjectGroup.name),
             )
         )
@@ -164,18 +174,26 @@ class SqlAlchemyAccessListQueryGateway:
             .join(tree, tree.c.unit_id == ProjectUnitNode.id_)
             .options(
                 selectinload(OrmAccessList.rules)
-                .selectinload(OrmAccessRule.target)
+                .selectinload(OrmAccessRule.responsible)
                 .selectin_polymorphic(
-                    [AccessRuleUserTarget, AccessRuleRoleTarget, AccessRuleGroupTarget]
+                    [
+                        AccessRuleUserResponsible,
+                        AccessRuleRoleResponsible,
+                        AccessRuleGroupResponsible,
+                    ]
                 ),
                 selectinload(OrmAccessList.rules)
-                .selectinload(OrmAccessRule.target.of_type(AccessRuleGroupTarget))
-                .joinedload(AccessRuleGroupTarget.group)
+                .selectinload(
+                    OrmAccessRule.responsible.of_type(AccessRuleGroupResponsible)
+                )
+                .joinedload(AccessRuleGroupResponsible.group)
                 .load_only(OrmProjectGroup.name),
             )
             .order_by(tree.c.depth.asc())
         )
 
-        response: Sequence[OrmAccessList] = (await self._session.execute(stmt)).scalars().all()
+        response: Sequence[OrmAccessList] = (
+            (await self._session.execute(stmt)).scalars().all()
+        )
 
         return [self._mapper.to_domain(acl) for acl in response]

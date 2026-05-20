@@ -15,7 +15,14 @@ from .permissions import (
     CanAssignAccessList,
     CanChangePrivateness,
     CanManageProjectGroup,
+    CanManageProjectTask,
+    CanCompleteProjectTask,
+    CanCancelProjectTask,
     CanAddGroupParticipant,
     ProjectGroupParticipantManagmentContext,
+    CanAssignProjectTaskTeam,
+    ProjectTaskTeamAssignmentContext,
+    ProjectTaskCompleteContext,
+    ProjectTaskCancelContext,
 )
 from .authorize import authorize

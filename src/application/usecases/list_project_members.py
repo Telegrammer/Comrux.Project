@@ -21,7 +21,6 @@ from application.exceptions import (
 
 @dataclass
 class ListProjectMembersRequest:
-
     project_id: ProjectId
 
     @classmethod
@@ -30,7 +29,6 @@ class ListProjectMembersRequest:
 
 
 class ListProjectMembersElementResponse(TypedDict):
-
     user_id: UserId
     name: Name
     bio: str
@@ -44,7 +42,6 @@ class ListProjectMembersElementResponse(TypedDict):
 
 
 class ListProjectMembersUsecase:
-
     def __init__(
         self,
         project_gateway: ProjectQueryGateway,
@@ -64,6 +61,7 @@ class ListProjectMembersUsecase:
             raise ProjectNotFoundError("Project with given id does not exist")
 
         members: dict[UserId, ProjectRole] = found_project.members
+
         users: Sequence[User] = await self._user_gateway.by_ids(
             [elem.value for elem in members.keys()], search_params
         )

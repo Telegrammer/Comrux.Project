@@ -2,6 +2,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from domain.entities import User, Project, UserId, AccessList
+from domain.entities.project_task import ProjectTask
+from domain.entities.project_group import ProjectGroupId
 from domain.enums.project_roles import ProjectRole
 from .base import Permission, PermissionContext, AuthorizationResult
 from .role_hierarchy import (
@@ -161,6 +163,48 @@ class CanManageProjectGroup(CanUpdateProject, Permission[ProjectGroupManagmentCo
         )
 
 
+class CanManageProjectTask(CanUpdateProject): ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProjectTaskCompleteContext(PermissionContext):
+    subject_id: UserId
+    subject_role: ProjectRole | None
+    task: ProjectTask
+    is_assigned: bool
+
+
+class CanCompleteProjectTask(Permission[ProjectTaskCompleteContext]):
+    def is_satisfied_by(self, context: ProjectTaskCompleteContext) -> AuthorizationResult:
+        is_creator = context.task.creator_id == context.subject_id
+        is_owner = context.subject_role == ProjectRole.OWNER
+        if is_creator or is_owner or context.is_assigned:
+            return AuthorizationResult(True)
+        return AuthorizationResult(
+            False,
+            "Only task creator, project owner, or assigned can complete task",
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProjectTaskCancelContext(PermissionContext):
+    subject_id: UserId
+    subject_role: ProjectRole | None
+    task: ProjectTask
+
+
+class CanCancelProjectTask(Permission[ProjectTaskCancelContext]):
+    def is_satisfied_by(self, context: ProjectTaskCancelContext) -> AuthorizationResult:
+        is_creator = context.task.creator_id == context.subject_id
+        is_owner = context.subject_role == ProjectRole.OWNER
+        if is_creator or is_owner:
+            return AuthorizationResult(True)
+        return AuthorizationResult(
+            False,
+            "Only task creator or project owner can cancel task",
+        )
+
+
 @dataclass(frozen=True, kw_only=True)
 class ProjectGroupParticipantManagmentContext(PermissionContext):
     subject: User
@@ -211,3 +255,30 @@ class CanAddGroupParticipant(
             )
 
         return AuthorizationResult(True)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProjectTaskTeamAssignmentContext(PermissionContext):
+    subject: User
+    project: Project
+    target_group_id: ProjectGroupId
+    subject_group_ids: frozenset[ProjectGroupId]
+    object_user_id: UserId
+    object_group_ids: frozenset[ProjectGroupId]
+
+
+class CanAssignProjectTaskTeam(Permission[ProjectTaskTeamAssignmentContext]):
+    def is_satisfied_by(
+        self, context: ProjectTaskTeamAssignmentContext
+    ) -> AuthorizationResult:
+        subject_role = context.project.members.get(UserId(context.subject.id_))
+        is_owner = subject_role == ProjectRole.OWNER
+        is_object_user = UserId(context.subject.id_) == context.object_user_id
+        is_subject_in_target = context.target_group_id in context.subject_group_ids
+        is_object_in_target = context.target_group_id in context.object_group_ids
+        if is_owner or is_object_user or (is_subject_in_target and is_object_in_target):
+            return AuthorizationResult(True)
+        return AuthorizationResult(
+            False,
+            "Team assignment allowed only for owner, object user, or common team membership",
+        )

@@ -20,7 +20,7 @@ from presentation.models import AccessListCreated
 from presentation.models.access_list import (
     AccessListCreate,
     AccessRuleCreate,
-    AccessRuleTargetUserPayload,
+    AccessRuleResponsibleUserPayload,
 )
 
 
@@ -53,8 +53,8 @@ class StubCreateAccessListHandler:
         assert request.name == self._expected_name
         assert len(request.rules) == 1
         rule: AccessRuleCreate = request.rules[0]
-        assert isinstance(rule.target, AccessRuleTargetUserPayload)
-        assert rule.target.user_id == self._expected_rule_user_id
+        assert isinstance(rule.responsible, AccessRuleResponsibleUserPayload)
+        assert rule.responsible.user_id == self._expected_rule_user_id
         assert rule.action == self._expected_rule_action
         assert rule.type == "ALLOW"
 
@@ -131,7 +131,9 @@ def test_create_access_list_endpoint_delegates_to_handler_and_returns_response()
         name=expected_name,
         rules=[
             AccessRuleCreate(
-                target=AccessRuleTargetUserPayload(user_id=expected_rule_user_id),
+                responsible=AccessRuleResponsibleUserPayload(
+                    user_id=expected_rule_user_id
+                ),
                 action=expected_rule_action,
                 type="ALLOW",
             ),

@@ -29,3 +29,7 @@ from .project_group import (
     SqlAlchemyProjectGroupCommandGateway,
     SqlAlchemyProjectGroupQueryGateway,
 )
+from .project_task import (
+    SqlAlchemyProjectTaskCommandGateway,
+    SqlAlchemyProjectTaskQueryGateway,
+)

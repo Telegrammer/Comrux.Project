@@ -10,7 +10,6 @@ MAX_NAME_LENGTH = 100
 
 @dataclass
 class Name(ValueObject[str]):
-
     def __post_init__(self):
         cleaned_value = self._clean_value(self.value)
 
@@ -43,6 +42,10 @@ class Name(ValueObject[str]):
             return False
 
         for character in value:
-            if not (character.isalpha() or character in {".", "-", " ", "_"}):
+            if not (
+                character.isalpha()
+                or character in {".", "-", " ", "_"}
+                or character.isdigit()
+            ):
                 return False
         return True

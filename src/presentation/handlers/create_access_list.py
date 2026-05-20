@@ -11,18 +11,18 @@ from application.usecases import CreateAccessListRequest, CreateAccessListRespon
 from application.compositions import CreateAccessListComposition
 
 from presentation.models import AccessListCreate, AccessListCreated
-from presentation.presenters import AccessListCreateRuleTargetPresenter, OrdersPresenter
+from presentation.presenters import AccessListCreateRuleResponsiblePresenter, OrdersPresenter
 
 
 class CreateAccessListHandler:
     def __init__(
         self,
         usecase: CreateAccessListComposition,
-        rule_target_presenter: AccessListCreateRuleTargetPresenter,
+        rule_responsible_presenter: AccessListCreateRuleResponsiblePresenter,
         orders_presenter: OrdersPresenter,
     ):
         self._usecase = usecase
-        self._rule_target_presenter = rule_target_presenter
+        self._rule_responsible_presenter = rule_responsible_presenter
         self._orders_presenter = orders_presenter
 
     async def __call__(
@@ -44,8 +44,10 @@ class CreateAccessListHandler:
 
         for rule in request.rules:
             is_allow: bool = rule.type == "ALLOW"
-            target = self._rule_target_presenter.to_domain_target(rule.target)
-            rules.append(AccessRule(target, rule.action, is_allow))
+            responsible = self._rule_responsible_presenter.to_domain_responsible(
+                rule.responsible
+            )
+            rules.append(AccessRule(responsible, rule.action, is_allow, order=0))
 
         group_list_params = ProjectGroupListParams(
             filters=[LikeFilter("name", name)] if name else [],

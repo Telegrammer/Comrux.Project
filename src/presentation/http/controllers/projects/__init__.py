@@ -28,6 +28,10 @@ from .delete_group import create_delete_group_router
 from .join_group import create_join_group_router
 from .leave_group import create_leave_group_router
 from .list_group_members import create_list_group_members_router
+from .create_task import create_create_task_router
+from .list_tasks import create_list_tasks_router
+from .get_task import create_get_task_router
+from .set_task_status import create_set_task_status_router
 
 projects_router = APIRouter(prefix="/project", tags=["project"])
 projects_router.include_router(create_create_project_router())
@@ -45,6 +49,10 @@ projects_router.include_router(create_delete_group_router())
 projects_router.include_router(create_join_group_router())
 projects_router.include_router(create_leave_group_router())
 projects_router.include_router(create_list_group_members_router())
+projects_router.include_router(create_create_task_router())
+projects_router.include_router(create_list_tasks_router())
+projects_router.include_router(create_get_task_router())
+projects_router.include_router(create_set_task_status_router())
 projects_router.include_router(create_remove_member_router())
 projects_router.include_router(create_set_role_router())
 projects_router.include_router(create_add_acl_router())

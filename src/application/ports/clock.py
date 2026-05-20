@@ -7,7 +7,10 @@ from datetime import datetime
 
 
 class Clock(Protocol):
-
     @abstractmethod
     def now(cls) -> datetime:
+        raise NotImplementedError
+
+    @abstractmethod
+    def normalize(self, dt: datetime) -> datetime:
         raise NotImplementedError

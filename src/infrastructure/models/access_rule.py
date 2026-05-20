@@ -1,14 +1,13 @@
-from datetime import date
 from uuid import UUID
-from sqlalchemy import ForeignKey, Enum
-from sqlalchemy.orm import mapped_column, Mapped, relationship, with_polymorphic
+from sqlalchemy import ForeignKey, Enum, Integer
+from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 
 from domain.enums import ProjectUnitAction
 
 from .base import Base
-from .access_rule_target import (
-    AccessRuleTarget,
+from .access_rule_responsible import (
+    AccessRuleResponsible,
 )
 
 
@@ -16,9 +15,8 @@ class AccessList: ...
 
 
 class AccessRule(Base):
-
-    target_id: Mapped[int] = mapped_column(
-        ForeignKey("access_rule_targets.id_"), primary_key=True
+    responsible_id: Mapped[int] = mapped_column(
+        ForeignKey("responsibles.id_", ondelete="CASCADE"), primary_key=True
     )
     action: Mapped[ProjectUnitAction] = mapped_column(
         Enum(ProjectUnitAction), name="action", primary_key=True
@@ -27,6 +25,7 @@ class AccessRule(Base):
         ForeignKey("access_lists.id_", ondelete="CASCADE"), primary_key=True
     )
     is_allow: Mapped[bool] = mapped_column(nullable=False)
+    order: Mapped[int] = mapped_column("order", Integer, nullable=False)
 
-    target: Mapped[AccessRuleTarget] = relationship(lazy="selectin")
+    responsible: Mapped[AccessRuleResponsible] = relationship(lazy="selectin")
     access_list: Mapped["AccessList"] = relationship(back_populates="rules")

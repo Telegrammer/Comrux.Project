@@ -33,13 +33,29 @@ from .access_list import (
     AccessRule,
     AccessListRead,
     GroupAccessRule,
-    AccessRuleTargetUserPayload,
-    AccessRuleTargetRolePayload,
-    AccessRuleTargetGroupPayload,
+    AccessRuleResponsibleUserPayload,
+    AccessRuleResponsibleRolePayload,
+    AccessRuleResponsibleGroupPayload,
 )
 from .project_group import (
     ProjectGroupCreate,
     ProjectGroupCreated,
     ProjectGroupRead,
     ProjectGroupJoin,
+)
+from .project_task import (
+    ProjectTaskAssigneeUserPayload,
+    ProjectTaskAssigneeRolePayload,
+    ProjectTaskAssigneeGroupPayload,
+    ProjectTaskAssigneePayload,
+    ProjectTaskCreateUser,
+    ProjectTaskCreateRole,
+    ProjectTaskCreateGroup,
+    ProjectTaskCreate,
+    ProjectTaskCreated,
+    ProjectTaskRead,
+    ProjectTaskAssigneeRead,
+    ProjectTaskDetailsRead,
+    ProjectTaskSetStatus,
+    ProjectTaskStatusChanged,
 )

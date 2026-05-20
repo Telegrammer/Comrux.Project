@@ -18,3 +18,4 @@ from .task import (
 )
 from .access_list import SqlAlchemyAccessListMapper
 from .project_group import SqlAlchemyProjectGroupMapper
+from .project_task import SqlAlchemyProjectTaskMapper

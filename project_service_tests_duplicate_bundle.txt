@@ -1,0 +1,5316 @@
+src/tests/__init__.py
+
+
+
+src/tests/context.py
+
+import pytest
+from dateutil.relativedelta import relativedelta
+from datetime import date
+from unittest.mock import Mock
+
+
+@pytest.fixture
+def sample_project():
+    project = Mock()
+    project.name = "Test Project"
+    project.description = "Test Description"
+    return project
+
+
+@pytest.fixture
+def mock_birthdate_policy():
+    policy = Mock()
+    policy.low_border = date(1900, 1, 1)
+    policy.age_border = relativedelta(years=18)
+    return policy
+
+
+@pytest.fixture
+def mock_id_generator():
+    generator = Mock()
+    generator.return_value = "test-user-id"
+    return generator
+
+src/tests/test_access_list.py
+
+# Тесты усиливают protection и refactor-resistance для сущности access_list и связанных доменных объектов.
+# target_file: src/tests/test_access_list.py — проверка создания и поведения AccessList, AccessRule, AccessRuleResponsible и AccessListService.
+
+import pytest
+
+from domain.entities import AccessList, AccessListId, AccessRule, ProjectId, UserId
+from domain.entities.access_list import (
+    AccessRuleGroupResponsible,
+    AccessRuleRoleResponsible,
+    AccessRuleResponsible,
+    AccessRuleUserResponsible,
+)
+from domain.entities.project_group import ProjectGroupId
+from domain.enums import ProjectRole, ProjectUnitAction
+from domain.exceptions import DomainFieldError
+from domain.ports.id_generators import AccessListIdGenerator
+from domain.services import AccessListService
+from domain.value_objects import FileName
+# --- AccessRuleUserResponsible ---
+
+
+def _make_access_rule_user_target(identifier: str) -> AccessRuleUserResponsible:
+    # `AccessRuleUserResponsible` в текущей модели может быть `frozen=True`,
+    # поэтому прямой вызов __init__ иногда ломается.
+    # Для unit-тестов создаём инстанс без __init__ и выставляем поле вручную.
+    target: AccessRuleUserResponsible = object.__new__(AccessRuleUserResponsible)
+    field_name: str = (
+        "owner"
+        if "owner" in getattr(AccessRuleUserResponsible, "__annotations__", {})
+        else "user_id"
+    )
+    object.__setattr__(target, field_name, UserId(identifier))
+    return target
+
+
+def _access_rule_user_target_id_value(target: AccessRuleUserResponsible) -> str:
+    maybe_owner: UserId | None = getattr(target, "owner", None)
+    if maybe_owner is not None:
+        return maybe_owner.value
+    return target.user_id.value
+
+
+def test_access_rule_user_target_creates_with_valid_uuid() -> None:
+    user_uuid: str = "550e8400-e29b-41d4-a716-446655440000"
+
+    target: AccessRuleUserResponsible = _make_access_rule_user_target(user_uuid)
+
+    assert _access_rule_user_target_id_value(target) == user_uuid
+    assert isinstance(target, AccessRuleResponsible)
+
+
+def test_access_rule_user_target_accepts_visitor() -> None:
+    user_uuid: str = "550e8400-e29b-41d4-a716-446655440000"
+    target: AccessRuleUserResponsible = _make_access_rule_user_target(user_uuid)
+
+    class TestVisitor:
+        def visit_user(self, t: AccessRuleUserResponsible) -> str:
+            return f"user:{_access_rule_user_target_id_value(t)}"
+
+        def visit_role(self, t: AccessRuleRoleResponsible) -> str:
+            return "role"
+
+    result: str = target.accept(TestVisitor())
+
+    assert result == f"user:{user_uuid}"
+
+
+# --- AccessRuleRoleResponsible ---
+
+
+def test_access_rule_role_target_creates_with_role() -> None:
+    target: AccessRuleRoleResponsible = AccessRuleRoleResponsible(role=ProjectRole.OWNER)
+
+    assert target.role == ProjectRole.OWNER
+    assert isinstance(target, AccessRuleResponsible)
+
+
+def test_access_rule_role_target_accepts_visitor() -> None:
+    target: AccessRuleRoleResponsible = AccessRuleRoleResponsible(role=ProjectRole.MEMBER)
+
+    class TestVisitor:
+        def visit_user(self, t: AccessRuleUserResponsible) -> str:
+            return "user"
+
+        def visit_role(self, t: AccessRuleRoleResponsible) -> str:
+            return f"role:{t.role}"
+
+    result: str = target.accept(TestVisitor())
+
+    assert result == "role:MEMBER"
+
+
+# --- AccessRule ---
+
+
+def test_access_rule_creates_with_user_target() -> None:
+    user_target: AccessRuleUserResponsible = _make_access_rule_user_target(
+        "550e8400-e29b-41d4-a716-446655440000"
+    )
+
+    rule: AccessRule = AccessRule(
+        responsible=user_target,
+        action=ProjectUnitAction.READ,
+        is_allow=True,
+    )
+
+    assert rule.responsible == user_target
+    assert rule.action == ProjectUnitAction.READ
+    assert rule.is_allow is True
+
+
+def test_access_rule_creates_with_deny_action() -> None:
+    user_target: AccessRuleUserResponsible = _make_access_rule_user_target(
+        "550e8400-e29b-41d4-a716-446655440001"
+    )
+
+    rule: AccessRule = AccessRule(
+        responsible=user_target,
+        action=ProjectUnitAction.WRITE,
+        is_allow=False,
+    )
+
+    assert rule.is_allow is False
+    assert rule.action == ProjectUnitAction.WRITE
+
+
+# --- AccessListId ---
+
+
+def test_access_list_id_creates_with_valid_uuid() -> None:
+    valid_uuid: str = "550e8400-e29b-41d4-a716-446655440002"
+
+    access_list_id: AccessListId = AccessListId(valid_uuid)
+
+    assert access_list_id.value == valid_uuid
+
+
+def test_access_list_id_rejects_invalid_uuid() -> None:
+    with pytest.raises(DomainFieldError, match="value is not an id"):
+        AccessListId("invalid-uuid")
+
+
+# --- AccessList ---
+
+
+def test_access_list_creates_with_required_fields() -> None:
+    access_list_id: AccessListId = AccessListId("550e8400-e29b-41d4-a716-446655440003")
+    name: FileName = FileName("My Access List")
+    project_id: ProjectId = ProjectId("550e8400-e29b-41d4-a716-446655440004")
+    owner_id: UserId = UserId("550e8400-e29b-41d4-a716-446655440005")
+    rule: AccessRule = AccessRule(
+        responsible=_make_access_rule_user_target("550e8400-e29b-41d4-a716-446655440005"),
+        action=ProjectUnitAction.READ,
+        is_allow=True,
+    )
+
+    access_list: AccessList = AccessList(
+        id_=access_list_id,
+        name=name,
+        project=project_id,
+        owner=owner_id,
+        rules=[rule],
+    )
+
+    assert access_list.id_ == access_list_id.value
+    assert access_list.name == "My Access List"
+    assert access_list.project == "550e8400-e29b-41d4-a716-446655440004"
+    assert access_list.owner == "550e8400-e29b-41d4-a716-446655440005"
+    assert len(access_list.rules) == 1
+    assert access_list.rules[0].action == ProjectUnitAction.READ
+
+
+def test_access_list_creates_without_owner() -> None:
+    access_list_id: AccessListId = AccessListId("550e8400-e29b-41d4-a716-446655440006")
+    name: FileName = FileName("Public List")
+    project_id: ProjectId = ProjectId("550e8400-e29b-41d4-a716-446655440007")
+
+    access_list: AccessList = AccessList(
+        id_=access_list_id,
+        name=name,
+        project=project_id,
+        owner=None,
+        rules=[],
+    )
+
+    assert access_list.owner is None
+    assert access_list.rules == []
+
+
+def test_access_list_creates_with_multiple_rules() -> None:
+    access_list_id: AccessListId = AccessListId("550e8400-e29b-41d4-a716-446655440008")
+    rules: list[AccessRule] = [
+        AccessRule(
+            responsible=_make_access_rule_user_target(
+                "550e8400-e29b-41d4-a716-446655440009"
+            ),
+            action=ProjectUnitAction.READ,
+            is_allow=True,
+        ),
+        AccessRule(
+            responsible=_make_access_rule_user_target(
+                "550e8400-e29b-41d4-a716-44665544000c"
+            ),
+            action=ProjectUnitAction.WRITE,
+            is_allow=False,
+        ),
+    ]
+
+    access_list: AccessList = AccessList(
+        id_=access_list_id,
+        name=FileName("Multi-rule List"),
+        project=ProjectId("550e8400-e29b-41d4-a716-44665544000a"),
+        owner=UserId("550e8400-e29b-41d4-a716-44665544000b"),
+        rules=rules,
+    )
+
+    assert len(access_list.rules) == 2
+    assert access_list.rules[0].action == ProjectUnitAction.READ
+    assert access_list.rules[1].action == ProjectUnitAction.WRITE
+
+
+def test_access_list_equality_by_id() -> None:
+    shared_id: AccessListId = AccessListId("550e8400-e29b-41d4-a716-44665544000c")
+
+    first: AccessList = AccessList(
+        id_=shared_id,
+        name=FileName("Equality Test"),
+        project=ProjectId("550e8400-e29b-41d4-a716-44665544000d"),
+        owner=None,
+        rules=[],
+    )
+    second: AccessList = AccessList(
+        id_=shared_id,
+        name=FileName("Different Name"),
+        project=ProjectId("550e8400-e29b-41d4-a716-44665544000e"),
+        owner=None,
+        rules=[],
+    )
+
+    assert first.id_ == second.id_
+
+
+# --- AccessListService ---
+
+
+@pytest.fixture
+def mock_access_list_id_generator() -> AccessListIdGenerator:
+    from unittest.mock import Mock
+
+    generator: Mock = Mock(spec=AccessListIdGenerator)
+    generator.return_value = AccessListId("550e8400-e29b-41d4-a716-44665544000f")
+    return generator
+
+
+@pytest.fixture
+def access_list_service(mock_access_list_id_generator: AccessListIdGenerator) -> AccessListService:
+    from domain.ports.access_rule_responsible_resolution_order import (
+        FixedAccessRuleResponsibleResolutionOrder,
+    )
+
+    return AccessListService(
+        id_generator=mock_access_list_id_generator,
+        responsible_order=FixedAccessRuleResponsibleResolutionOrder(),
+    )
+
+
+def test_access_list_service_creates_access_list(
+    access_list_service: AccessListService,
+    mock_access_list_id_generator: AccessListIdGenerator,
+) -> None:
+    from unittest.mock import Mock
+
+    mock_owner: Mock = Mock()
+    mock_owner.id_ = "550e8400-e29b-41d4-a716-446655440010"
+    mock_project: Mock = Mock()
+    mock_project.id_ = "550e8400-e29b-41d4-a716-446655440011"
+    rules: list[AccessRule] = [
+        AccessRule(
+            responsible=_make_access_rule_user_target(
+                "550e8400-e29b-41d4-a716-446655440012"
+            ),
+            action=ProjectUnitAction.READ,
+            is_allow=True,
+        ),
+    ]
+
+    access_list: AccessList = access_list_service.create_access_list(
+        name=FileName("Service Created List"),
+        owner=mock_owner,
+        project=mock_project,
+        rules=rules,
+    )
+
+    assert access_list.id_ == "550e8400-e29b-41d4-a716-44665544000f"
+    assert access_list.name == "Service Created List"
+    assert access_list.project == mock_project.id_
+    assert access_list.owner == mock_owner.id_
+    assert len(access_list.rules) == 1
+    mock_access_list_id_generator.assert_called_once()
+
+
+def test_access_list_service_creates_access_list_with_empty_rules(
+    access_list_service: AccessListService,
+) -> None:
+    from unittest.mock import Mock
+
+    mock_owner: Mock = Mock()
+    mock_owner.id_ = "550e8400-e29b-41d4-a716-446655440013"
+    mock_project: Mock = Mock()
+    mock_project.id_ = "550e8400-e29b-41d4-a716-446655440014"
+
+    access_list: AccessList = access_list_service.create_access_list(
+        name=FileName("Empty Rules List"),
+        owner=mock_owner,
+        project=mock_project,
+        rules=[],
+    )
+
+    assert access_list.rules == []
+
+
+def test_access_list_service_assigns_order_by_target_type_and_input_sequence(
+    access_list_service: AccessListService,
+) -> None:
+    from unittest.mock import Mock
+
+    mock_owner: Mock = Mock()
+    mock_owner.id_ = "550e8400-e29b-41d4-a716-446655440151"
+    mock_project: Mock = Mock()
+    mock_project.id_ = "550e8400-e29b-41d4-a716-446655440152"
+    mock_project.members = {}
+
+    g1 = ProjectGroupId("550e8400-e29b-41d4-a716-446655440161")
+    g2 = ProjectGroupId("550e8400-e29b-41d4-a716-446655440162")
+    g3 = ProjectGroupId("550e8400-e29b-41d4-a716-446655440163")
+    g4 = ProjectGroupId("550e8400-e29b-41d4-a716-446655440164")
+
+    rules: list[AccessRule] = [
+        AccessRule(AccessRuleGroupResponsible(g1), ProjectUnitAction.READ, True),
+        AccessRule(
+            _make_access_rule_user_target("550e8400-e29b-41d4-a716-446655440171"),
+            ProjectUnitAction.READ,
+            True,
+        ),
+        AccessRule(
+            AccessRuleRoleResponsible(role=ProjectRole.MEMBER),
+            ProjectUnitAction.READ,
+            True,
+        ),
+        AccessRule(AccessRuleGroupResponsible(g2), ProjectUnitAction.WRITE, True),
+        AccessRule(
+            _make_access_rule_user_target("550e8400-e29b-41d4-a716-446655440172"),
+            ProjectUnitAction.WRITE,
+            True,
+        ),
+        AccessRule(AccessRuleGroupResponsible(g3), ProjectUnitAction.EXECUTE, True),
+        AccessRule(
+            AccessRuleRoleResponsible(role=ProjectRole.LEAD),
+            ProjectUnitAction.EXECUTE,
+            True,
+        ),
+        AccessRule(AccessRuleGroupResponsible(g4), ProjectUnitAction.SECURE, True),
+    ]
+
+    access_list: AccessList = access_list_service.create_access_list(
+        name=FileName("Ordered Rules"),
+        owner=mock_owner,
+        project=mock_project,
+        rules=rules,
+    )
+
+    assert [type(rule.responsible) for rule in access_list.rules] == [
+        AccessRuleUserResponsible,
+        AccessRuleUserResponsible,
+        AccessRuleGroupResponsible,
+        AccessRuleGroupResponsible,
+        AccessRuleGroupResponsible,
+        AccessRuleGroupResponsible,
+        AccessRuleRoleResponsible,
+        AccessRuleRoleResponsible,
+    ]
+    assert [rule.order for rule in access_list.rules] == [0, 1, 0, 1, 2, 3, 0, 1]
+
+src/tests/test_access_list_resolve_permissions.py
+
+from datetime import UTC, datetime
+from unittest.mock import Mock
+
+from domain.entities import (
+    AccessList,
+    AccessListId,
+    AccessRule,
+    Project,
+    ProjectId,
+    UserId,
+)
+from domain.entities.access_list import (
+    AccessRuleGroupResponsible,
+    AccessRuleRoleResponsible,
+    AccessRuleUserResponsible,
+)
+from domain.entities.project_group import ProjectGroupId
+from domain.enums import ProjectRole, ProjectUnitAction
+from domain.ports.access_rule_responsible_resolution_order import (
+    FixedAccessRuleResponsibleResolutionOrder,
+)
+from domain.services import AccessListService
+from domain.value_objects import FileName, PassedDatetime, Title
+
+
+def _make_access_list(
+    *,
+    list_id: str,
+    project_id: str,
+    owner_id: str,
+    rules: list[AccessRule],
+) -> AccessList:
+    return AccessList(
+        id_=AccessListId(list_id),
+        name=FileName("ACL"),
+        project=ProjectId(project_id),
+        owner=UserId(owner_id),
+        rules=rules,
+    )
+
+
+def _secure_rule(is_allow: bool) -> AccessRule:
+    return AccessRule(
+        responsible=AccessRuleRoleResponsible(role=ProjectRole.MEMBER),
+        action=ProjectUnitAction.SECURE,
+        is_allow=is_allow,
+    )
+
+
+def _member_project(project_id: str, member_user_id: str) -> Project:
+    now = datetime.now(UTC)
+    return Project(
+        id_=ProjectId(project_id),
+        title=Title("test-project"),
+        root_directory=None,
+        created_at=PassedDatetime(now, now),
+        members={UserId(member_user_id): ProjectRole.MEMBER},
+    )
+
+
+def test_resolve_permissions_returns_empty_sets_when_no_rules() -> None:
+    service = AccessListService(
+        id_generator=Mock(),
+        responsible_order=FixedAccessRuleResponsibleResolutionOrder(),
+    )
+    project_id = "550e8400-e29b-41d4-a716-446655440100"
+    actor = "550e8400-e29b-41d4-a716-446655440101"
+    project = _member_project(project_id, actor)
+
+    resolved = service.resolve_permissions([], project, UserId(actor))
+
+    assert resolved.allowed == set()
+    assert resolved.denied == set()
+
+
+def test_resolve_permissions_prefers_child_rule_over_parent() -> None:
+    service = AccessListService(
+        id_generator=Mock(),
+        responsible_order=FixedAccessRuleResponsibleResolutionOrder(),
+    )
+    project_id = "550e8400-e29b-41d4-a716-446655440111"
+    actor = "550e8400-e29b-41d4-a716-446655440116"
+    project = _member_project(project_id, actor)
+
+    child_acl = _make_access_list(
+        list_id="550e8400-e29b-41d4-a716-446655440112",
+        project_id=project_id,
+        owner_id="550e8400-e29b-41d4-a716-446655440113",
+        rules=[_secure_rule(is_allow=False)],
+    )
+    parent_acl = _make_access_list(
+        list_id="550e8400-e29b-41d4-a716-446655440114",
+        project_id=project_id,
+        owner_id="550e8400-e29b-41d4-a716-446655440115",
+        rules=[_secure_rule(is_allow=True)],
+    )
+
+    resolved = service.resolve_permissions([child_acl, parent_acl], project, UserId(actor))
+
+    assert ProjectUnitAction.SECURE in resolved.denied
+    assert ProjectUnitAction.SECURE not in resolved.allowed
+
+
+def test_resolve_permissions_uses_parent_when_child_has_no_secure_rule() -> None:
+    service = AccessListService(
+        id_generator=Mock(),
+        responsible_order=FixedAccessRuleResponsibleResolutionOrder(),
+    )
+    project_id = "550e8400-e29b-41d4-a716-446655440121"
+    actor = "550e8400-e29b-41d4-a716-446655440126"
+    project = _member_project(project_id, actor)
+
+    child_acl = _make_access_list(
+        list_id="550e8400-e29b-41d4-a716-446655440122",
+        project_id=project_id,
+        owner_id="550e8400-e29b-41d4-a716-446655440123",
+        rules=[],
+    )
+    parent_acl = _make_access_list(
+        list_id="550e8400-e29b-41d4-a716-446655440124",
+        project_id=project_id,
+        owner_id="550e8400-e29b-41d4-a716-446655440125",
+        rules=[_secure_rule(is_allow=True)],
+    )
+
+    resolved = service.resolve_permissions([child_acl, parent_acl], project, UserId(actor))
+
+    assert ProjectUnitAction.SECURE in resolved.allowed
+    assert ProjectUnitAction.SECURE not in resolved.denied
+
+
+def test_resolve_permissions_respects_order_inside_single_target_type() -> None:
+    service = AccessListService(
+        id_generator=Mock(),
+        responsible_order=FixedAccessRuleResponsibleResolutionOrder(),
+    )
+    project_id = "550e8400-e29b-41d4-a716-446655440131"
+    actor = "550e8400-e29b-41d4-a716-446655440136"
+    project = _member_project(project_id, actor)
+
+    acl = _make_access_list(
+        list_id="550e8400-e29b-41d4-a716-446655440132",
+        project_id=project_id,
+        owner_id="550e8400-e29b-41d4-a716-446655440133",
+        rules=[
+            AccessRule(
+                responsible=AccessRuleRoleResponsible(role=ProjectRole.MEMBER),
+                action=ProjectUnitAction.SECURE,
+                is_allow=True,
+                order=1,
+            ),
+            AccessRule(
+                responsible=AccessRuleRoleResponsible(role=ProjectRole.MEMBER),
+                action=ProjectUnitAction.SECURE,
+                is_allow=False,
+                order=0,
+            ),
+        ],
+    )
+
+    resolved = service.resolve_permissions([acl], project, UserId(actor))
+
+    assert ProjectUnitAction.SECURE in resolved.denied
+    assert ProjectUnitAction.SECURE not in resolved.allowed
+
+
+def test_resolve_permissions_prefers_user_rules_over_group_rules() -> None:
+    service = AccessListService(
+        id_generator=Mock(),
+        responsible_order=FixedAccessRuleResponsibleResolutionOrder(),
+    )
+    project_id = "550e8400-e29b-41d4-a716-446655440141"
+    actor = "550e8400-e29b-41d4-a716-446655440146"
+    group_id = ProjectGroupId("550e8400-e29b-41d4-a716-446655440147")
+    project = _member_project(project_id, actor)
+
+    acl = _make_access_list(
+        list_id="550e8400-e29b-41d4-a716-446655440142",
+        project_id=project_id,
+        owner_id="550e8400-e29b-41d4-a716-446655440143",
+        rules=[
+            AccessRule(
+                responsible=AccessRuleGroupResponsible(group_id=group_id),
+                action=ProjectUnitAction.SECURE,
+                is_allow=False,
+                order=0,
+            ),
+            AccessRule(
+                responsible=AccessRuleUserResponsible(actor),
+                action=ProjectUnitAction.SECURE,
+                is_allow=True,
+                order=0,
+            ),
+        ],
+    )
+
+    resolved = service.resolve_permissions(
+        [acl],
+        project,
+        UserId(actor),
+        user_project_group_ids=frozenset({group_id}),
+    )
+
+    assert ProjectUnitAction.SECURE in resolved.allowed
+    assert ProjectUnitAction.SECURE not in resolved.denied
+
+
+src/tests/test_access_rule_cascade_config.py
+
+from infrastructure.models import (
+    AccessRule,
+    AccessRuleGroupResponsible,
+    AccessRuleResponsible,
+    AccessRuleUserResponsible,
+)
+
+
+def _single_fk_ondelete(column) -> str | None:
+    foreign_keys = list(column.foreign_keys)
+    assert len(foreign_keys) == 1
+    return foreign_keys[0].ondelete
+
+
+def test_access_rule_responsible_fk_uses_on_delete_cascade() -> None:
+    assert _single_fk_ondelete(AccessRule.__table__.c.responsible_id) == "CASCADE"
+
+
+def test_user_and_group_target_subtype_fk_use_cascade() -> None:
+    assert _single_fk_ondelete(AccessRuleUserResponsible.__table__.c.user_id) == "CASCADE"
+    assert _single_fk_ondelete(AccessRuleGroupResponsible.__table__.c.group_id) == "CASCADE"
+    assert _single_fk_ondelete(AccessRuleUserResponsible.__table__.c.id_) == "CASCADE"
+    assert _single_fk_ondelete(AccessRuleGroupResponsible.__table__.c.id_) == "CASCADE"
+
+
+def test_target_base_table_exists_for_polymorphic_chain() -> None:
+    assert AccessRuleResponsible.__table__.name == "responsibles"
+
+src/tests/test_assign_access_list_service.py
+
+# Тесты SECURE-политики AssignAccessListService.
+
+import asyncio
+from dataclasses import dataclass
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+
+from application.exceptions import AccessListNotInProjectError
+from application.exceptions.authorization import AccessDeniedError
+from application.services import AssignAccessListService
+
+
+@dataclass
+class StubUnit:
+    access_list: object | None = None
+
+
+@dataclass
+class StubResolvedPermissions:
+    allowed: set[object]
+    denied: set[object]
+
+
+def test_assign_access_list_service_explicit_deny_blocks_even_with_baseline_allow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    acl_queries = SimpleNamespace(by_id=AsyncMock(name="by_id"))
+    unit_permissions = AsyncMock(name="unit_permissions")
+    unit_commands = SimpleNamespace(update=AsyncMock(name="update"))
+    service = AssignAccessListService(
+        acl_queries=acl_queries,
+        unit_permissions=unit_permissions,
+        unit_commands=unit_commands,
+    )
+
+    current_user = SimpleNamespace(id_="user-1")
+    project = SimpleNamespace(id_="project-1")
+    unit = StubUnit(access_list="old-acl")
+    secure_action = SimpleNamespace(name="SECURE")
+    unit_permissions.return_value = StubResolvedPermissions(
+        allowed=set(),
+        denied={secure_action},
+    )
+    authorize_stub = Mock(name="authorize_stub")
+    authorize_stub.return_value = None
+
+    import application.services.access_list_assignment as mod
+
+    monkeypatch.setattr(mod.ProjectUnitAction, "SECURE", secure_action)
+    monkeypatch.setattr(mod, "authorize", authorize_stub)
+
+    with pytest.raises(AccessDeniedError):
+        asyncio.run(
+            service(
+                current_user=current_user,
+                project=project,
+                unit=unit,
+                access_list_id=None,
+            )
+        )
+    authorize_stub.assert_not_called()
+    unit_commands.update.assert_not_awaited()
+    acl_queries.by_id.assert_not_awaited()
+
+
+def test_assign_access_list_service_explicit_allow_overrides_baseline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    acl_queries = SimpleNamespace(by_id=AsyncMock(name="by_id"))
+    unit_permissions = AsyncMock(name="unit_permissions")
+    unit_commands = SimpleNamespace(update=AsyncMock(name="update"))
+    service = AssignAccessListService(
+        acl_queries=acl_queries,
+        unit_permissions=unit_permissions,
+        unit_commands=unit_commands,
+    )
+
+    current_user = SimpleNamespace(id_="user-1")
+    project = SimpleNamespace(id_="project-1")
+    unit = StubUnit(access_list="old-acl")
+    secure_action = SimpleNamespace(name="SECURE")
+    unit_permissions.return_value = StubResolvedPermissions(
+        allowed={secure_action},
+        denied=set(),
+    )
+    authorize_stub = Mock(name="authorize_stub")
+    # baseline authorize should not be called when explicit allow SECURE exists
+    authorize_stub.side_effect = AssertionError("baseline authorize should not run")
+
+    import application.services.access_list_assignment as mod
+
+    monkeypatch.setattr(mod.ProjectUnitAction, "SECURE", secure_action)
+    monkeypatch.setattr(mod, "authorize", authorize_stub)
+
+    asyncio.run(
+        service(
+            current_user=current_user,
+            project=project,
+            unit=unit,
+            access_list_id=None,
+        )
+    )
+
+    authorize_stub.assert_not_called()
+    assert unit.access_list is None
+    unit_commands.update.assert_awaited_once_with(unit)
+    acl_queries.by_id.assert_not_awaited()
+
+
+def test_assign_access_list_service_default_deny_uses_baseline_and_denies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    acl_queries = SimpleNamespace(by_id=AsyncMock(name="by_id"))
+    unit_permissions = AsyncMock(name="unit_permissions")
+    unit_commands = SimpleNamespace(update=AsyncMock(name="update"))
+    service = AssignAccessListService(
+        acl_queries=acl_queries,
+        unit_permissions=unit_permissions,
+        unit_commands=unit_commands,
+    )
+
+    current_user = SimpleNamespace(id_="user-1")
+    project = SimpleNamespace(id_="project-1")
+    unit = StubUnit(access_list="old-acl")
+    secure_action = SimpleNamespace(name="SECURE")
+    unit_permissions.return_value = StubResolvedPermissions(
+        allowed=set(),
+        denied=set(),
+    )
+    authorize_stub = Mock(name="authorize_stub")
+    authorize_stub.side_effect = AccessDeniedError("baseline denied")
+
+    import application.services.access_list_assignment as mod
+    monkeypatch.setattr(mod.ProjectUnitAction, "SECURE", secure_action)
+    monkeypatch.setattr(mod, "authorize", authorize_stub)
+
+    with pytest.raises(AccessDeniedError):
+        asyncio.run(
+            service(
+                current_user=current_user,
+                project=project,
+                unit=unit,
+                access_list_id=None,
+            )
+        )
+    authorize_stub.assert_called_once()
+    unit_commands.update.assert_not_awaited()
+    acl_queries.by_id.assert_not_awaited()
+
+
+def test_assign_access_list_service_raises_when_acl_not_in_project(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    acl_queries = SimpleNamespace(by_id=AsyncMock(name="by_id"))
+    unit_permissions = AsyncMock(name="unit_permissions")
+    unit_commands = SimpleNamespace(update=AsyncMock(name="update"))
+    service = AssignAccessListService(
+        acl_queries=acl_queries,
+        unit_permissions=unit_permissions,
+        unit_commands=unit_commands,
+    )
+
+    current_user = SimpleNamespace(id_="user-1")
+    project = SimpleNamespace(id_="project-1")
+    unit = StubUnit(access_list="old-acl")
+    secure_action = SimpleNamespace(name="SECURE")
+    unit_permissions.return_value = StubResolvedPermissions(
+        allowed={secure_action},
+        denied=set(),
+    )
+    access_list = SimpleNamespace(project="other-project", id_="acl-1")
+    access_list_id = "acl-id-request"
+    acl_queries.by_id.return_value = access_list
+
+    authorize_stub = Mock(name="authorize_stub")
+    import application.services.access_list_assignment as mod
+
+    monkeypatch.setattr(mod.ProjectUnitAction, "SECURE", secure_action)
+    monkeypatch.setattr(mod, "authorize", authorize_stub)
+
+    with pytest.raises(AccessListNotInProjectError):
+        asyncio.run(
+            service(
+                current_user=current_user,
+                project=project,
+                unit=unit,
+                access_list_id=access_list_id,
+            )
+        )
+
+    authorize_stub.assert_not_called()
+    unit_commands.update.assert_not_awaited()
+    acl_queries.by_id.assert_awaited_once_with(access_list_id)
+
+
+src/tests/test_create_access_list_endpoint.py
+
+# Тест усиливает protection и refactor-resistance для контрактного endpoint’а создания ACL по проекту.
+# target_file: src/tests/test_create_access_list_endpoint.py — проверка POST `/project/{project_id}/acl` и схемы ответа.
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Awaitable, Callable
+from typing import cast
+from uuid import UUID
+
+from fastapi import APIRouter, FastAPI
+from fastapi.routing import APIRoute
+from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import UUID4
+from starlette.requests import Request as StarletteRequest
+
+from domain.enums import ProjectUnitAction
+from presentation.http.controllers.projects.add_access_list import create_add_acl_router
+from presentation.models import AccessListCreated
+from presentation.models.access_list import (
+    AccessListCreate,
+    AccessRuleCreate,
+    AccessRuleResponsibleUserPayload,
+)
+
+
+class StubCreateAccessListHandler:
+    def __init__(
+        self,
+        *,
+        expected_project_id: UUID4,
+        expected_name: str,
+        expected_rule_user_id: UUID4,
+        expected_rule_action: ProjectUnitAction,
+        expected_access_list_id: UUID4,
+        expected_created_by: UUID4,
+    ) -> None:
+        self._expected_project_id: UUID4 = expected_project_id
+        self._expected_name: str = expected_name
+        self._expected_rule_user_id: UUID4 = expected_rule_user_id
+        self._expected_rule_action: ProjectUnitAction = expected_rule_action
+        self._expected_access_list_id: UUID4 = expected_access_list_id
+        self._expected_created_by: UUID4 = expected_created_by
+
+    async def __call__(
+        self,
+        request: AccessListCreate,
+        project_id: UUID4,
+        **_: object,
+    ) -> AccessListCreated:
+        # Контракт контроллера: handler вызывается как `handler(project_id, request_body)`.
+        assert project_id == self._expected_project_id
+        assert request.name == self._expected_name
+        assert len(request.rules) == 1
+        rule: AccessRuleCreate = request.rules[0]
+        assert isinstance(rule.responsible, AccessRuleResponsibleUserPayload)
+        assert rule.responsible.user_id == self._expected_rule_user_id
+        assert rule.action == self._expected_rule_action
+        assert rule.type == "ALLOW"
+
+        return AccessListCreated(
+            id_=self._expected_access_list_id,
+            created_by=self._expected_created_by,
+        )
+
+
+class StubAsyncDishkaContainer:
+    def __init__(self, handler: StubCreateAccessListHandler) -> None:
+        self._handler: StubCreateAccessListHandler = handler
+
+    def __call__(
+        self, additional_context: object, scope: object | None = None
+    ) -> "StubAsyncDishkaContainer":
+        # В dishka создаётся "контекстный" child container; для теста это не нужно.
+        return self
+
+    async def __aenter__(self) -> "StubAsyncDishkaContainer":
+        return self
+
+    async def __aexit__(
+        self, exc_type: object, exc: object, tb: object
+    ) -> None:
+        return None
+
+    async def get(
+        self, type_hint: object, component: object | None = None
+    ) -> StubCreateAccessListHandler:
+        # В endpoint’е dependency соответствует FromDishka[CreateAccessListHandler].
+        return self._handler
+
+
+def test_create_access_list_endpoint_delegates_to_handler_and_returns_response() -> None:
+    expected_project_id_str: str = "550e8400-e29b-41d4-a716-446655440000"
+    expected_access_list_id_str: str = "550e8400-e29b-41d4-a716-44665544000f"
+    expected_created_by_str: str = "550e8400-e29b-41d4-a716-446655440010"
+    expected_rule_user_id_str: str = "550e8400-e29b-41d4-a716-446655440020"
+    expected_name: str = "Test ACL"
+    expected_rule_action: ProjectUnitAction = ProjectUnitAction.READ
+
+    expected_project_id: UUID4 = UUID(expected_project_id_str)  # type: ignore[assignment]
+    expected_access_list_id: UUID4 = UUID(expected_access_list_id_str)  # type: ignore[assignment]
+    expected_created_by: UUID4 = UUID(expected_created_by_str)  # type: ignore[assignment]
+    expected_rule_user_id: UUID4 = UUID(expected_rule_user_id_str)  # type: ignore[assignment]
+
+    stub_handler: StubCreateAccessListHandler = StubCreateAccessListHandler(
+        expected_project_id=expected_project_id,
+        expected_name=expected_name,
+        expected_rule_user_id=expected_rule_user_id,
+        expected_rule_action=expected_rule_action,
+        expected_access_list_id=expected_access_list_id,
+        expected_created_by=expected_created_by,
+    )
+    app: FastAPI = FastAPI()
+    projects_router: APIRouter = APIRouter(prefix="/project", tags=["project"])
+    projects_router.include_router(create_add_acl_router())
+    app.include_router(projects_router)
+
+    route = next(
+        r
+        for r in app.routes
+        if isinstance(r, APIRoute)
+        and r.path == "/project/{project_id}/acl"
+        and "POST" in r.methods
+    )
+    endpoint = cast(object, route.endpoint)
+
+    # dishka `@inject` может оборачивать endpoint; если есть __wrapped__, берём оригинал.
+    raw_endpoint = getattr(endpoint, "__wrapped__", endpoint)
+
+    request_body: AccessListCreate = AccessListCreate(
+        name=expected_name,
+        rules=[
+            AccessRuleCreate(
+                responsible=AccessRuleResponsibleUserPayload(
+                    user_id=expected_rule_user_id
+                ),
+                action=expected_rule_action,
+                type="ALLOW",
+            ),
+        ],
+    )
+    token: HTTPAuthorizationCredentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="test-token"
+    )
+
+    endpoint_callable: Callable[..., Awaitable[AccessListCreated]] = cast(
+        Callable[..., Awaitable[AccessListCreated]], raw_endpoint
+    )
+
+    stub_container: StubAsyncDishkaContainer = StubAsyncDishkaContainer(stub_handler)
+
+    async def receive() -> dict[str, object]:
+        return {
+            "type": "http.request",
+            "body": b"",
+            "more_body": False,
+        }
+
+    dishka_request: StarletteRequest = StarletteRequest(
+        scope={"type": "http", "method": "POST", "path": "/"},
+        receive=receive,
+    )
+    dishka_request.state.dishka_container = stub_container
+
+    result: AccessListCreated = asyncio.run(
+        endpoint_callable(
+            project_id=expected_project_id,
+            request_body=request_body,
+            token=token,
+            ___dishka_request=dishka_request,
+        )
+    )
+
+    assert result.id_ == expected_access_list_id
+    assert result.created_by == expected_created_by
+
+src/tests/test_create_project_task_handler.py
+
+import asyncio
+from datetime import datetime
+
+from domain.entities import ProjectId
+from presentation.handlers import CreateProjectTaskHandler
+from presentation.models import (
+    ProjectTaskAssigneeGroupPayload,
+    ProjectTaskAssigneeRolePayload,
+    ProjectTaskAssigneeUserPayload,
+    ProjectTaskCreate,
+)
+
+
+class CompositionStub:
+    def __init__(self) -> None:
+        self.called = False
+        self.captured_assignees = []
+
+    async def __call__(self, request):
+        self.called = True
+        self.captured_assignees = request.assignees
+        return {
+            "task_id": "550e8400-e29b-41d4-a716-446655440060",
+            "project_id": ProjectId("550e8400-e29b-41d4-a716-446655440061"),
+        }
+
+
+class AssigneePresenterStub:
+    def to_domain_assignee(self, target):
+        return target
+
+
+def test_create_task_handler_accepts_mixed_assignee_kinds() -> None:
+    async def scenario() -> None:
+        composition = CompositionStub()
+        handler = CreateProjectTaskHandler(
+            composition=composition,
+            assignee_presenter=AssigneePresenterStub(),
+        )
+
+        response = await handler(
+            "550e8400-e29b-41d4-a716-446655440062",  # type: ignore[arg-type]
+            ProjectTaskCreate(
+                title="Prepare roadmap",
+                description="Roadmap",
+                start_at=datetime(2026, 4, 26, 10, 0, 0),
+                end_at=datetime(2026, 4, 26, 11, 0, 0),
+                assignees=[
+                    ProjectTaskAssigneeUserPayload(
+                        user_id="550e8400-e29b-41d4-a716-446655440063"
+                    ),
+                    ProjectTaskAssigneeRolePayload(role="MEMBER"),
+                    ProjectTaskAssigneeGroupPayload(
+                        group_id="550e8400-e29b-41d4-a716-446655440064"
+                    ),
+                ],
+            ),
+        )
+
+        assert composition.called is True
+        assert [assignee.kind for assignee in composition.captured_assignees] == [
+            "user",
+            "role",
+            "group",
+        ]
+        assert str(response.task_id) == "550e8400-e29b-41d4-a716-446655440060"
+
+    asyncio.run(scenario())
+
+src/tests/test_get_project_task.py
+
+import asyncio
+from datetime import datetime
+from types import SimpleNamespace
+
+import pytest
+
+from application.exceptions import AccessDeniedError
+from application.models import ProjectTaskDetailsRead, ProjectTaskGroupAssigneeRead
+from application.usecases import (
+    GetProjectTaskRequest,
+    GetProjectTaskResponse,
+    GetProjectTaskUsecase,
+)
+from domain.entities import (
+    ProjectGroupId,
+    ProjectId,
+    ProjectTask,
+    ProjectTaskId,
+    UserId,
+)
+from domain.enums import ProjectRole, ProjectTaskStatus
+from domain.value_objects import EmailAddress, Name
+from presentation.handlers import GetProjectTaskHandler
+
+
+class ClockStub:
+    def __init__(self, current_time: datetime) -> None:
+        self._current_time = current_time
+
+    def now(self) -> datetime:
+        return self._current_time
+
+
+class CurrentUserStub:
+    def __init__(self, user_id: UserId) -> None:
+        self._user = SimpleNamespace(id_=user_id.value)
+
+    async def __call__(self) -> SimpleNamespace:
+        return self._user
+
+
+class ProjectQueryGatewayStub:
+    def __init__(self, project_id: ProjectId, member_id: UserId | None) -> None:
+        members = {member_id: ProjectRole.MEMBER} if member_id is not None else {}
+        self._project = SimpleNamespace(id_=project_id.value, members=members)
+
+    async def by_id(self, project_id: str) -> SimpleNamespace:
+        return self._project
+
+
+class ProjectTaskCommandGatewayStub:
+    def __init__(self) -> None:
+        self.synced_project_id: str | None = None
+
+    async def sync_overdue_batch(self, project_id: str, _now: datetime) -> int:
+        self.synced_project_id = project_id
+        return 0
+
+
+class ProjectTaskQueryGatewayStub:
+    def __init__(self, task_details: ProjectTaskDetailsRead) -> None:
+        self._task_details = task_details
+        self.details_requested = False
+
+    async def by_id_detailed(self, _task_id: ProjectTaskId) -> ProjectTaskDetailsRead:
+        self.details_requested = True
+        return self._task_details
+
+    async def by_id(self, _task_id: ProjectTaskId) -> ProjectTask:
+        return self._task_details.task
+
+
+class UserQueryGatewayStub:
+    def __init__(self, email: EmailAddress, name: Name) -> None:
+        self._user = SimpleNamespace(email=email, name=name)
+
+    async def by_id(self, _user_id: str) -> SimpleNamespace:
+        return self._user
+
+
+class GetProjectTaskCompositionStub:
+    def __init__(self, response: GetProjectTaskResponse) -> None:
+        self._response = response
+
+    async def __call__(self, _request: GetProjectTaskRequest) -> GetProjectTaskResponse:
+        return self._response
+
+
+def _task(project_id: ProjectId, creator_id: UserId) -> ProjectTask:
+    current_time = datetime(2026, 4, 28, 10, 0, 0)
+    return ProjectTask(
+        id_=ProjectTaskId("550e8400-e29b-41d4-a716-446655440301"),
+        project_id=project_id,
+        title="Prepare roadmap",
+        description="Draft project roadmap",
+        status=ProjectTaskStatus.IN_PROGRESS,
+        creator_id=creator_id,
+        start_at=current_time,
+        end_at=current_time.replace(hour=12),
+        created_at=current_time,
+        updated_at=current_time,
+        assignees=[],
+    )
+
+
+def _task_details(project_id: ProjectId, creator_id: UserId) -> ProjectTaskDetailsRead:
+    user_id = UserId("550e8400-e29b-41d4-a716-446655440303")
+    group_id = ProjectGroupId("550e8400-e29b-41d4-a716-446655440304")
+    return ProjectTaskDetailsRead(
+        task=_task(project_id, creator_id),
+        role_assignees={ProjectRole.MEMBER},
+        user_assignees={user_id: Name("Assigned User")},
+        group_assignees={
+            group_id: ProjectTaskGroupAssigneeRead(
+                name=Name("Product Team"),
+                color="#ffcc00",
+            )
+        },
+    )
+
+
+def test_get_project_task_usecase_returns_task_details_with_creator() -> None:
+    async def scenario() -> None:
+        project_id = ProjectId("550e8400-e29b-41d4-a716-446655440302")
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440305")
+        creator_id = UserId("550e8400-e29b-41d4-a716-446655440306")
+        task_commands = ProjectTaskCommandGatewayStub()
+        task_queries = ProjectTaskQueryGatewayStub(_task_details(project_id, creator_id))
+        usecase = GetProjectTaskUsecase(
+            clock=ClockStub(datetime(2026, 4, 28, 10, 0, 0)),
+            task_commands=task_commands,
+            task_queries=task_queries,
+            current_user=CurrentUserStub(current_user_id),
+            project_gateway=ProjectQueryGatewayStub(project_id, current_user_id),
+            user_gateway=UserQueryGatewayStub(
+                EmailAddress("creator@example.com"), Name("Task Creator")
+            ),
+        )
+
+        response = await usecase(
+            GetProjectTaskRequest.from_primitives(
+                project_id.value, "550e8400-e29b-41d4-a716-446655440301"
+            )
+        )
+
+        assert response["id_"] == "550e8400-e29b-41d4-a716-446655440301"
+        assert response["project_id"] == project_id.value
+        assert response["creator_id"] == creator_id.value
+        assert response["creator_email"].value == "creator@example.com"
+        assert response["creator_name"].value == "Task Creator"
+        assert response["role_assignees"] == {ProjectRole.MEMBER}
+        assert len(response["user_assignees"]) == 1
+        assert len(response["group_assignees"]) == 1
+        assert task_commands.synced_project_id == project_id.value
+        assert task_queries.details_requested is True
+
+    asyncio.run(scenario())
+
+
+def test_get_project_task_usecase_denies_non_member_before_task_lookup() -> None:
+    async def scenario() -> None:
+        project_id = ProjectId("550e8400-e29b-41d4-a716-446655440307")
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440308")
+        creator_id = UserId("550e8400-e29b-41d4-a716-446655440309")
+        task_queries = ProjectTaskQueryGatewayStub(_task_details(project_id, creator_id))
+        usecase = GetProjectTaskUsecase(
+            clock=ClockStub(datetime(2026, 4, 28, 10, 0, 0)),
+            task_commands=ProjectTaskCommandGatewayStub(),
+            task_queries=task_queries,
+            current_user=CurrentUserStub(current_user_id),
+            project_gateway=ProjectQueryGatewayStub(project_id, None),
+            user_gateway=UserQueryGatewayStub(
+                EmailAddress("creator@example.com"), Name("Task Creator")
+            ),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await usecase(
+                GetProjectTaskRequest.from_primitives(
+                    project_id.value, "550e8400-e29b-41d4-a716-446655440301"
+                )
+            )
+
+        assert task_queries.details_requested is False
+
+    asyncio.run(scenario())
+
+
+def test_get_project_task_handler_formats_assignees_for_presentation() -> None:
+    async def scenario() -> None:
+        current_time = datetime(2026, 4, 28, 10, 0, 0)
+        project_id = "550e8400-e29b-41d4-a716-446655440310"
+        task_id = ProjectTaskId("550e8400-e29b-41d4-a716-446655440311")
+        creator_id = "550e8400-e29b-41d4-a716-446655440312"
+        user_id = UserId("550e8400-e29b-41d4-a716-446655440313")
+        group_id = ProjectGroupId("550e8400-e29b-41d4-a716-446655440314")
+        handler = GetProjectTaskHandler(
+            GetProjectTaskCompositionStub(
+                {
+                    "id_": task_id.value,
+                    "project_id": project_id,
+                    "creator_id": creator_id,
+                    "creator_email": EmailAddress("creator@example.com"),
+                    "creator_name": Name("Task Creator"),
+                    "title": "Prepare roadmap",
+                    "description": "Draft project roadmap",
+                    "status": ProjectTaskStatus.IN_PROGRESS,
+                    "start_at": current_time,
+                    "end_at": current_time.replace(hour=12),
+                    "created_at": current_time,
+                    "updated_at": current_time,
+                    "role_assignees": {ProjectRole.MEMBER},
+                    "user_assignees": {user_id: Name("Assigned User")},
+                    "group_assignees": {
+                        group_id: ProjectTaskGroupAssigneeRead(
+                            name=Name("Product Team"),
+                            color="#ffcc00",
+                        )
+                    },
+                }
+            )
+        )
+
+        response = await handler(project_id, task_id.value)  # type: ignore[arg-type]
+
+        assert str(response.id_) == task_id.value
+        assert str(response.project_id) == project_id
+        assert str(response.creator_id) == creator_id
+        assert response.creator_email == "creator@example.com"
+        assert response.creator_name == "Task Creator"
+        assert response.title == "Prepare roadmap"
+        assert [assignee.kind for assignee in response.assignees] == [
+            "role",
+            "user",
+            "group",
+        ]
+        assert [assignee.name for assignee in response.assignees] == [
+            ProjectRole.MEMBER.value,
+            "Assigned User",
+            "Product Team",
+        ]
+        assert response.assignees[2].color == "#ffcc00"
+
+    asyncio.run(scenario())
+
+src/tests/test_list_project_access_lists_endpoint.py
+
+# Тест усиливает protection и refactor-resistance для contract endpoint’а списка ACL по проекту.
+# target_file: src/tests/test_list_project_access_lists_endpoint.py — проверка GET `/project/{project_id}/acl` и схемы ответа.
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Awaitable, Callable
+from typing import cast
+from uuid import UUID
+
+from fastapi import APIRouter, FastAPI
+from fastapi.routing import APIRoute
+from pydantic import UUID4
+from starlette.requests import Request as StarletteRequest
+
+from domain.enums import ProjectUnitAction
+from presentation.http.controllers.projects.list_access_lists import (
+    create_list_acls_router,
+)
+from presentation.models import AccessListRead
+from presentation.models.access_list import UserAccessRule
+
+
+class StubListProjectAccessListsHandler:
+    def __init__(
+        self,
+        *,
+        expected_project_id: UUID4,
+        expected_offset: int,
+        expected_limit: int,
+        expected_filter_name: str,
+        expected_orders: str,
+        expected_access_list_id: UUID4,
+        expected_created_by: UUID4,
+        expected_owner_name: str,
+        expected_acl_name: str,
+        expected_rule_responsible: str,
+        expected_rule_action: ProjectUnitAction,
+    ) -> None:
+        self._expected_project_id: UUID4 = expected_project_id
+        self._expected_offset: int = expected_offset
+        self._expected_limit: int = expected_limit
+        self._expected_filter_name: str = expected_filter_name
+        self._expected_orders: str = expected_orders
+
+        self._expected_access_list_id: UUID4 = expected_access_list_id
+        self._expected_created_by: UUID4 = expected_created_by
+        self._expected_owner_name: str = expected_owner_name
+        self._expected_acl_name: str = expected_acl_name
+
+        self._expected_rule_responsible: str = expected_rule_responsible
+        self._expected_rule_action: ProjectUnitAction = expected_rule_action
+
+    async def __call__(
+        self,
+        *,
+        raw_filters: dict[str, str],
+        project_id: UUID4,
+        raw_orders: str,
+        offset: int,
+        limit: int,
+    ) -> list[AccessListRead]:
+        assert project_id == self._expected_project_id
+        assert offset == self._expected_offset
+        assert limit == self._expected_limit
+        assert raw_orders == self._expected_orders
+
+        assert raw_filters == {"name": self._expected_filter_name}
+
+        return [
+            AccessListRead(
+                id_=self._expected_access_list_id,
+                created_by=self._expected_created_by,
+                owner_name=self._expected_owner_name,
+                name=self._expected_acl_name,
+                rules=[
+                    UserAccessRule(
+                        responsible=UUID(self._expected_rule_responsible),
+                        display_name="User (550e84)",
+                        action=self._expected_rule_action,
+                        type="ALLOW",
+                    )
+                ],
+            )
+        ]
+
+
+class StubAsyncDishkaContainer:
+    def __init__(self, handler: StubListProjectAccessListsHandler) -> None:
+        self._handler: StubListProjectAccessListsHandler = handler
+
+    def __call__(
+        self, additional_context: object, scope: object | None = None
+    ) -> "StubAsyncDishkaContainer":
+        return self
+
+    async def __aenter__(self) -> "StubAsyncDishkaContainer":
+        return self
+
+    async def __aexit__(
+        self, exc_type: object, exc: object, tb: object
+    ) -> None:
+        return None
+
+    async def get(
+        self, type_hint: object, component: object | None = None
+    ) -> StubListProjectAccessListsHandler:
+        return self._handler
+
+
+def test_list_project_acl_endpoint_delegates_to_handler_and_returns_response() -> None:
+    expected_project_id_str: str = "550e8400-e29b-41d4-a716-446655440000"
+    expected_offset: int = 5
+    expected_limit: int = 2
+    expected_filter_name: str = "My ACL"
+    expected_orders: str = '[{"field":"name","direction":"asc"}]'
+
+    expected_access_list_id_str: str = "550e8400-e29b-41d4-a716-44665544000f"
+    expected_created_by_str: str = "550e8400-e29b-41d4-a716-446655440010"
+    expected_owner_name: str = "Owner Name"
+    expected_acl_name: str = "ACL #1"
+    expected_rule_responsible: str = "550e8400-e29b-41d4-a716-446655440020"
+    expected_rule_action: ProjectUnitAction = ProjectUnitAction.READ
+
+    expected_project_id: UUID4 = UUID(expected_project_id_str)  # type: ignore[assignment]
+    expected_access_list_id: UUID4 = UUID(expected_access_list_id_str)  # type: ignore[assignment]
+    expected_created_by: UUID4 = UUID(expected_created_by_str)  # type: ignore[assignment]
+
+    stub_handler: StubListProjectAccessListsHandler = StubListProjectAccessListsHandler(
+        expected_project_id=expected_project_id,
+        expected_offset=expected_offset,
+        expected_limit=expected_limit,
+        expected_filter_name=expected_filter_name,
+        expected_orders=expected_orders,
+        expected_access_list_id=expected_access_list_id,
+        expected_created_by=expected_created_by,
+        expected_owner_name=expected_owner_name,
+        expected_acl_name=expected_acl_name,
+        expected_rule_responsible=expected_rule_responsible,
+        expected_rule_action=expected_rule_action,
+    )
+
+    app: FastAPI = FastAPI()
+    projects_router: APIRouter = APIRouter(prefix="/project", tags=["project"])
+    projects_router.include_router(create_list_acls_router())
+    app.include_router(projects_router)
+
+    route = next(
+        r
+        for r in app.routes
+        if isinstance(r, APIRoute)
+        and r.path == "/project/{project_id}/acl"
+        and "GET" in r.methods
+    )
+    endpoint = cast(object, route.endpoint)
+
+    raw_endpoint = getattr(endpoint, "__wrapped__", endpoint)
+    endpoint_callable: Callable[..., Awaitable[list[AccessListRead]]] = cast(
+        Callable[..., Awaitable[list[AccessListRead]]], raw_endpoint
+    )
+
+    stub_container: StubAsyncDishkaContainer = StubAsyncDishkaContainer(stub_handler)
+
+    async def receive() -> dict[str, object]:
+        return {
+            "type": "http.request",
+            "body": b"",
+            "more_body": False,
+        }
+
+    dishka_request: StarletteRequest = StarletteRequest(
+        scope={"type": "http", "method": "GET", "path": "/"},
+        receive=receive,
+    )
+    dishka_request.state.dishka_container = stub_container
+
+    result: list[AccessListRead] = asyncio.run(
+        endpoint_callable(
+            project_id=expected_project_id,
+            offset=expected_offset,
+            limit=expected_limit,
+            name=expected_filter_name,
+            orders=expected_orders,
+            ___dishka_request=dishka_request,
+        )
+    )
+
+    assert len(result) == 1
+    assert result[0].id_ == expected_access_list_id
+    assert result[0].created_by == expected_created_by
+    assert result[0].owner_name == expected_owner_name
+    assert result[0].name == expected_acl_name
+    assert str(result[0].rules[0].responsible) == expected_rule_responsible
+    assert result[0].rules[0].action == expected_rule_action
+    assert result[0].rules[0].type == "ALLOW"
+
+
+src/tests/test_list_project_group_members_usecase.py
+
+import asyncio
+from types import SimpleNamespace
+
+from application.services import ProjectGroupManageContext
+from application.usecases import (
+    ListProjectGroupMembersRequest,
+    ListProjectGroupMembersUsecase,
+)
+from application.ports.gateways.query_params import OffsetPagination
+from application.ports import UserListParams
+from domain.entities import ProjectGroup, ProjectGroupId, ProjectId, UserId
+from domain.enums import ProjectRole
+from domain.value_objects import HexColor, Title
+
+
+class ContextServiceStub:
+    def __init__(self, context: ProjectGroupManageContext) -> None:
+        self._context = context
+
+    async def __call__(self, *_args, **_kwargs) -> ProjectGroupManageContext:
+        return self._context
+
+
+class UserQueriesStub:
+    def __init__(self, users: list[object]) -> None:
+        self._users = users
+
+    async def by_ids(self, _ids, _params):
+        return self._users
+
+
+def test_list_project_group_members_returns_members() -> None:
+    async def scenario() -> None:
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440060")
+        participant_id = UserId("550e8400-e29b-41d4-a716-446655440061")
+        project_id = ProjectId("550e8400-e29b-41d4-a716-446655440063")
+        group_id = ProjectGroupId("550e8400-e29b-41d4-a716-446655440062")
+
+        context = ProjectGroupManageContext(
+            current_user=SimpleNamespace(id_=current_user_id.value),
+            pinned_project=SimpleNamespace(
+                members={
+                    current_user_id: ProjectRole.OWNER,
+                    participant_id: ProjectRole.MEMBER,
+                }
+            ),
+            found_group=ProjectGroup(
+                id_=group_id,
+                project_id=project_id,
+                name=Title("Team"),
+                color=HexColor("#112233"),
+                owner=current_user_id,
+                participants=[participant_id],
+                is_public=True,
+            ),
+        )
+        user = SimpleNamespace(
+            id_=participant_id.value,
+            name="Teammate",
+            bio="Member",
+        )
+        usecase = ListProjectGroupMembersUsecase(
+            context_service=ContextServiceStub(context),
+            user_queries=UserQueriesStub([user]),
+        )
+
+        response = await usecase(
+            ListProjectGroupMembersRequest.from_primitives(
+                project_id=project_id.value,
+                group_id=group_id.value,
+            ),
+            UserListParams(
+                filters=[],
+                pagination=OffsetPagination(0, 10),
+                sorting=[],
+            ),
+        )
+
+        assert len(response) == 1
+        assert response[0]["user_id"] == participant_id.value
+        assert response[0]["role"] == ProjectRole.MEMBER
+
+    asyncio.run(scenario())
+
+src/tests/test_list_project_tasks_filters.py
+
+import asyncio
+from dataclasses import dataclass
+from types import SimpleNamespace
+
+from application.ports.gateways.query_params import (
+    EqFilter,
+    InFilter,
+    LikeFilter,
+    OffsetPagination,
+    ProjectTaskListParams,
+    SortingOrder,
+    SortingParam,
+)
+from application.usecases import ListProjectTasksRequest, ListProjectTasksUsecase
+from domain.entities import ProjectId, UserId
+from domain.enums import ProjectRole
+from presentation.handlers import ListProjectTasksHandler
+
+
+class OrdersPresenterStub:
+    def __call__(self, _raw_orders: str):
+        return []
+
+
+class TimeOrdersPresenterStub:
+    def __call__(self, _raw_orders: str):
+        return [SortingParam("created_at", SortingOrder.DESCENDING)]
+
+
+class ListTasksCompositionStub:
+    def __init__(self) -> None:
+        self.captured_params: ProjectTaskListParams | None = None
+
+    async def __call__(self, _request, params: ProjectTaskListParams):
+        self.captured_params = params
+        return []
+
+
+def test_list_tasks_handler_adds_active_filter() -> None:
+    async def scenario() -> None:
+        composition = ListTasksCompositionStub()
+        handler = ListProjectTasksHandler(
+            usecase=composition,
+            orders_presenter=OrdersPresenterStub(),
+        )
+
+        await handler(
+            project_id="550e8400-e29b-41d4-a716-446655440201",  # type: ignore[arg-type]
+            raw_orders="[]",
+            offset=0,
+            limit=10,
+            scope="active",
+        )
+
+        assert composition.captured_params is not None
+        assert any(
+            isinstance(f, InFilter)
+            and f.field_name == "status"
+            and f.values == ["PLANNED", "IN_PROGRESS"]
+            for f in composition.captured_params.filters
+        )
+
+    asyncio.run(scenario())
+
+
+def test_list_tasks_handler_sets_mine_flag_for_mine_scope() -> None:
+    async def scenario() -> None:
+        composition = ListTasksCompositionStub()
+        handler = ListProjectTasksHandler(
+            usecase=composition,
+            orders_presenter=OrdersPresenterStub(),
+        )
+
+        await handler(
+            project_id="550e8400-e29b-41d4-a716-446655440202",  # type: ignore[arg-type]
+            raw_orders="[]",
+            offset=0,
+            limit=10,
+            scope="mine",
+        )
+
+        assert composition.captured_params is not None
+        assert composition.captured_params.mine is True
+
+    asyncio.run(scenario())
+
+
+def test_list_tasks_handler_adds_name_filter() -> None:
+    async def scenario() -> None:
+        composition = ListTasksCompositionStub()
+        handler = ListProjectTasksHandler(
+            usecase=composition,
+            orders_presenter=OrdersPresenterStub(),
+        )
+
+        await handler(
+            project_id="550e8400-e29b-41d4-a716-446655440205",  # type: ignore[arg-type]
+            raw_orders="[]",
+            offset=0,
+            limit=10,
+            name="feature",
+        )
+
+        assert composition.captured_params is not None
+        assert any(
+            isinstance(f, LikeFilter)
+            and f.field_name == "title"
+            and f.value == "feature"
+            for f in composition.captured_params.filters
+        )
+
+    asyncio.run(scenario())
+
+
+def test_list_tasks_handler_passes_time_sorting() -> None:
+    async def scenario() -> None:
+        composition = ListTasksCompositionStub()
+        handler = ListProjectTasksHandler(
+            usecase=composition,
+            orders_presenter=TimeOrdersPresenterStub(),
+        )
+
+        await handler(
+            project_id="550e8400-e29b-41d4-a716-446655440206",  # type: ignore[arg-type]
+            raw_orders='[{"created_at":"DESC"}]',
+            offset=0,
+            limit=10,
+        )
+
+        assert composition.captured_params is not None
+        assert composition.captured_params.sorting == [
+            SortingParam("created_at", SortingOrder.DESCENDING)
+        ]
+
+    asyncio.run(scenario())
+
+
+class ClockStub:
+    def now(self):
+        return "2026-04-28T00:00:00"
+
+
+class CurrentUserStub:
+    def __init__(self, user_id: str) -> None:
+        self._user = SimpleNamespace(id_=user_id)
+
+    async def __call__(self):
+        return self._user
+
+
+class ProjectQueriesStub:
+    def __init__(self, project_id: str, user_id: UserId) -> None:
+        self._project = SimpleNamespace(
+            id_=project_id,
+            members={user_id: ProjectRole.MEMBER},
+        )
+
+    async def by_id(self, _project_id: str):
+        return self._project
+
+
+class TaskCommandsStub:
+    async def sync_overdue_batch(self, _project_id: ProjectId, _now):
+        return 0
+
+
+@dataclass
+class TaskQueriesStub:
+    captured_params: ProjectTaskListParams | None = None
+
+    async def by_project(self, _project_id: ProjectId, params: ProjectTaskListParams):
+        self.captured_params = params
+        return []
+
+
+def test_list_tasks_usecase_resolves_mine_flag_to_assigned_user() -> None:
+    async def scenario() -> None:
+        user_id = UserId("550e8400-e29b-41d4-a716-446655440203")
+        task_queries = TaskQueriesStub()
+        usecase = ListProjectTasksUsecase(
+            clock=ClockStub(),
+            current_user=CurrentUserStub(user_id.value),
+            project_queries=ProjectQueriesStub(
+                project_id="550e8400-e29b-41d4-a716-446655440204",
+                user_id=user_id,
+            ),
+            task_commands=TaskCommandsStub(),
+            task_queries=task_queries,
+        )
+
+        await usecase(
+            ListProjectTasksRequest.from_primitives(
+                "550e8400-e29b-41d4-a716-446655440204"
+            ),
+            ProjectTaskListParams(
+                filters=[],
+                pagination=OffsetPagination(0, 10),
+                sorting=[],
+                mine=True,
+            ),
+        )
+
+        assert task_queries.captured_params is not None
+        assert task_queries.captured_params.assigned_to_user_id == user_id.value
+        assert task_queries.captured_params.mine is False
+
+    asyncio.run(scenario())
+
+src/tests/test_project_group_service.py
+
+import pytest
+from datetime import datetime, timezone
+
+from domain.entities import Project, ProjectGroup, ProjectGroupId, ProjectId, UserId
+from domain.enums import ProjectRole
+from domain.exceptions import (
+    ProjectGroupAdmissionError,
+    ProjectGroupDuplicateParticipantError,
+    ProjectGroupOwnerInParticipantsError,
+    ProjectGroupParticipantNotInProjectError,
+)
+from domain.services import ProjectGroupService
+from domain.value_objects import HexColor, PassedDatetime, Title
+
+
+def _service() -> ProjectGroupService:
+    return ProjectGroupService(
+        id_generator=lambda: ProjectGroupId("550e8400-e29b-41d4-a716-446655440001")
+    )
+
+
+def _project(owner_id: str, member_ids: list[str]) -> Project:
+    now = datetime(2026, 4, 17, 12, 0, tzinfo=timezone.utc)
+    members = {UserId(owner_id): ProjectRole.OWNER}
+    for member_id in member_ids:
+        members[UserId(member_id)] = ProjectRole.MEMBER
+    return Project(
+        id_=ProjectId("550e8400-e29b-41d4-a716-446655440002"),
+        title=Title("Demo"),
+        root_directory=None,
+        description="",
+        members=members,
+        created_at=PassedDatetime(now, now),
+        is_private=False,
+    )
+
+
+def test_create_group_raises_if_participants_have_duplicates() -> None:
+    service = _service()
+    project = _project(
+        owner_id="550e8400-e29b-41d4-a716-446655440003",
+        member_ids=["550e8400-e29b-41d4-a716-446655440004"],
+    )
+
+    with pytest.raises(ProjectGroupDuplicateParticipantError):
+        service.create_group(
+            name=Title("Backend"),
+            color=HexColor("#112233"),
+            project=project,
+            owner=UserId("550e8400-e29b-41d4-a716-446655440003"),
+            participants=[
+                UserId("550e8400-e29b-41d4-a716-446655440004"),
+                UserId("550e8400-e29b-41d4-a716-446655440004"),
+            ],
+            is_public=False,
+        )
+
+
+def test_create_group_raises_if_participant_not_in_project() -> None:
+    service = _service()
+    project = _project(
+        owner_id="550e8400-e29b-41d4-a716-446655440003",
+        member_ids=[],
+    )
+
+    with pytest.raises(ProjectGroupParticipantNotInProjectError):
+        service.create_group(
+            name=Title("Backend"),
+            color=HexColor("#112233"),
+            project=project,
+            owner=UserId("550e8400-e29b-41d4-a716-446655440003"),
+            participants=[
+                UserId("550e8400-e29b-41d4-a716-446655440099"),
+            ],
+            is_public=False,
+        )
+
+
+def test_create_group_adds_owner_if_missing() -> None:
+    service = _service()
+    owner = "550e8400-e29b-41d4-a716-446655440003"
+    member = "550e8400-e29b-41d4-a716-446655440004"
+    project = _project(owner_id=owner, member_ids=[member])
+
+    group = service.create_group(
+        name=Title("Backend"),
+        color=HexColor("#112233"),
+        project=project,
+        owner=UserId(owner),
+        participants=[
+            UserId(member),
+        ],
+        is_public=False,
+    )
+
+    assert UserId(owner) in group.participants
+    assert len(group.participants) == 2
+
+
+def test_create_group_raises_if_owner_is_in_requested_participants() -> None:
+    service = _service()
+    owner = "550e8400-e29b-41d4-a716-446655440003"
+    member = "550e8400-e29b-41d4-a716-446655440004"
+    project = _project(owner_id=owner, member_ids=[member])
+
+    with pytest.raises(ProjectGroupOwnerInParticipantsError):
+        service.create_group(
+            name=Title("Backend"),
+            color=HexColor("#112233"),
+            project=project,
+            owner=UserId(owner),
+            participants=[UserId(owner), UserId(member)],
+            is_public=False,
+        )
+
+
+def test_join_private_group_requires_owner_admission() -> None:
+    service = _service()
+    group = ProjectGroup(
+        id_=ProjectGroupId("550e8400-e29b-41d4-a716-446655440010"),
+        project_id=ProjectId("550e8400-e29b-41d4-a716-446655440011"),
+        name=Title("Core"),
+        color=HexColor("#112233"),
+        owner=UserId("550e8400-e29b-41d4-a716-446655440012"),
+        is_public=False,
+        participants=[],
+    )
+
+    with pytest.raises(ProjectGroupAdmissionError):
+        service.join(
+            group=group,
+            participant_id=UserId("550e8400-e29b-41d4-a716-446655440013"),
+            actor_id=UserId("550e8400-e29b-41d4-a716-446655440013"),
+        )
+
+
+def test_join_public_group_denies_adding_another_participant_by_non_owner() -> None:
+    service = _service()
+    group = ProjectGroup(
+        id_=ProjectGroupId("550e8400-e29b-41d4-a716-446655440014"),
+        project_id=ProjectId("550e8400-e29b-41d4-a716-446655440015"),
+        name=Title("Open"),
+        color=HexColor("#112233"),
+        owner=UserId("550e8400-e29b-41d4-a716-446655440016"),
+        is_public=True,
+        participants=[],
+    )
+
+    with pytest.raises(ProjectGroupAdmissionError):
+        service.join(
+            group=group,
+            participant_id=UserId("550e8400-e29b-41d4-a716-446655440017"),
+            actor_id=UserId("550e8400-e29b-41d4-a716-446655440018"),
+        )
+
+
+def test_owner_may_leave_group_when_owner_and_participation_are_independent() -> None:
+    service = _service()
+    owner = UserId("550e8400-e29b-41d4-a716-446655440022")
+    group = ProjectGroup(
+        id_=ProjectGroupId("550e8400-e29b-41d4-a716-446655440020"),
+        project_id=ProjectId("550e8400-e29b-41d4-a716-446655440021"),
+        name=Title("Design"),
+        color=HexColor("#112233"),
+        owner=owner,
+        is_public=True,
+        participants=[
+            owner,
+            UserId("550e8400-e29b-41d4-a716-446655440023"),
+        ],
+    )
+
+    updated = service.leave(group, owner)
+
+    assert str(updated.owner) == owner.value
+    assert owner not in updated.participants
+
+src/tests/test_project_group_usecases.py
+
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+
+from application.exceptions import AccessDeniedError
+from application.services import ProjectGroupManageContext
+from application.usecases import (
+    DeleteProjectGroupRequest,
+    DeleteProjectGroupUsecase,
+)
+from domain.entities import ProjectGroup, ProjectGroupId, ProjectId, UserId
+from domain.enums import ProjectRole
+from domain.value_objects import HexColor, Title
+
+
+class ContextServiceStub:
+    def __init__(self, context: ProjectGroupManageContext) -> None:
+        self._context = context
+
+    async def __call__(self, *_args, **_kwargs) -> ProjectGroupManageContext:
+        return self._context
+
+
+class GroupCommandsStub:
+    def __init__(self) -> None:
+        self.deleted = False
+
+    async def delete(self, _group: ProjectGroup) -> None:
+        self.deleted = True
+
+
+def test_delete_group_denies_non_owner_non_project_owner() -> None:
+    async def scenario() -> None:
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440030")
+        group_owner_id = UserId("550e8400-e29b-41d4-a716-446655440031")
+        group = ProjectGroup(
+            id_=ProjectGroupId("550e8400-e29b-41d4-a716-446655440032"),
+            project_id=ProjectId("550e8400-e29b-41d4-a716-446655440033"),
+            name=Title("Ops"),
+            color=HexColor("#112233"),
+            owner=group_owner_id,
+            participants=[],
+            is_public=False,
+        )
+        context = ProjectGroupManageContext(
+            current_user=SimpleNamespace(id_=current_user_id.value),
+            pinned_project=SimpleNamespace(
+                members={current_user_id: ProjectRole.MEMBER},
+            ),
+            found_group=group,
+        )
+        commands = GroupCommandsStub()
+        usecase = DeleteProjectGroupUsecase(
+            context_service=ContextServiceStub(context),
+            group_commands=commands,
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await usecase(
+                DeleteProjectGroupRequest.from_primitives(
+                    project_id=str(group.project_id),
+                    group_id=str(group.id_),
+                )
+            )
+        assert commands.deleted is False
+
+    asyncio.run(scenario())
+
+src/tests/test_project_membership.py
+
+import pytest
+from uuid import uuid4
+from datetime import datetime, date
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from domain.enums import ProjectRole
+from infrastructure.models import Project, User, ProjectMembership
+from infrastructure.models.base import Base
+
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+logger = logging.getLogger(__name__)
+
+@pytest.fixture
+def engine():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    return engine
+
+
+@pytest.fixture
+def session(engine):
+    with Session(engine) as session:
+        yield session
+
+
+class TestProjectMembership:
+    def test_create_membership(self, session):
+        # Create test entities
+        user = User(
+            id_=uuid4(),
+            name="Test User",
+            bio="Test Bio",
+            birthdate=date(1990, 1, 1)
+        )
+        project = Project(
+            id_=uuid4(),
+            title="Test Project",
+            description="Test Description",
+            created_at=datetime.now()
+        )
+        
+        # Create membership
+        membership = ProjectMembership(
+            project_id=project.id_,
+            user_id=user.id_,
+            role=ProjectRole.owner
+        )
+
+        session.add_all([user, project, membership])
+        session.commit()
+
+        # Verify creation
+        saved_membership = session.get(ProjectMembership, (project.id_, user.id_))
+        
+        assert saved_membership.role == ProjectRole.owner
+        assert saved_membership.project == project
+        assert saved_membership.user == user
+
+        logger.debug("Project members %s", project.members)
+
+    def test_relationship_back_populates(self, session):
+        user = User(id_=uuid4(), name="User")
+        project = Project(id_=uuid4(), title="Project", created_at=datetime.now())
+        membership = ProjectMembership(
+            project_id=project.id_,
+            user_id=user.id_,
+            role=ProjectRole.member
+        )
+
+        session.add_all([user, project, membership])
+        session.commit()
+
+        assert membership in project.members
+        assert membership in user.memberships
+
+    def test_required_fields(self, session):
+        with pytest.raises(Exception):  # Specific exception depends on your DB
+            membership = ProjectMembership(
+                project_id=uuid4(),
+                user_id=uuid4(),
+                # Missing role
+            )
+            session.add(membership)
+            session.commit()
+
+
+class TestProject:
+    def test_create_project(self, session):
+        project = Project(
+            id_=uuid4(),
+            title="Test Project",
+            description="Test Description",
+            created_at=datetime.now()
+        )
+
+        session.add(project)
+        session.commit()
+
+        saved_project = session.get(Project, project.id_)
+        assert saved_project.title == "Test Project"
+        assert saved_project.description == "Test Description"
+        assert isinstance(saved_project.created_at, datetime)
+
+    def test_optional_description(self, session):
+        project = Project(
+            id_=uuid4(),
+            title="Test Project",
+            created_at=datetime.now()
+        )
+
+        session.add(project)
+        session.commit()
+
+        saved_project = session.get(Project, project.id_)
+        assert saved_project.description is None
+
+    def test_project_members_relationship(self, session):
+        project = Project(id_=uuid4(), title="Test", created_at=datetime.now())
+        user = User(id_=uuid4(), name="Member User")
+        membership = ProjectMembership(
+            project_id=project.id_,
+            user_id=user.id_,
+            role=ProjectRole.member
+        )
+
+        session.add_all([project, user, membership])
+        session.commit()
+
+        assert len(project.members) == 1
+        assert project.members[0].user == user
+
+
+class TestUser:
+    def test_create_user(self, session):
+        user = User(
+            id_=uuid4(),
+            name="Test User",
+            bio="Test Bio",
+            birthdate=date(1990, 1, 1)
+        )
+
+        session.add(user)
+        session.commit()
+
+        saved_user = session.get(User, user.id_)
+        assert saved_user.name == "Test User"
+        assert saved_user.bio == "Test Bio"
+        assert saved_user.birthdate == date(1990, 1, 1)
+
+    def test_optional_fields(self, session):
+        user = User(
+            id_=uuid4(),
+            name="Test User"
+        )
+
+        session.add(user)
+        session.commit()
+
+        saved_user = session.get(User, user.id_)
+        assert saved_user.bio is None
+        assert saved_user.birthdate is None
+
+    def test_user_memberships_relationship(self, session):
+        user = User(id_=uuid4(), name="Test User")
+        project = Project(id_=uuid4(), title="Test Project", created_at=datetime.now())
+        membership = ProjectMembership(
+            project_id=project.id_,
+            user_id=user.id_,
+            role=ProjectRole.owner
+        )
+
+        session.add_all([user, project, membership])
+        session.commit()
+
+        assert len(user.memberships) == 1
+        assert user.memberships[0].project == project
+
+
+def test_cascade_behavior(session):
+    # Test proper cascade deletion if configured in relationships
+    project = Project(id_=uuid4(), title="Test", created_at=datetime.now())
+    user = User(id_=uuid4(), name="User")
+    membership = ProjectMembership(
+        project_id=project.id_,
+        user_id=user.id_,
+        role=ProjectRole.owner
+    )
+
+    session.add_all([project, user, membership])
+    session.commit()
+
+    # Verify initial state
+    assert session.query(ProjectMembership).count() == 1
+
+    # Test deletion behavior (adjust according to your cascade rules)
+    session.delete(project)
+    session.commit()
+
+    # Check membership was deleted (if cascade="delete" is set)
+    assert session.query(ProjectMembership).count() == 0
+
+src/tests/test_project_release_endpoints.py
+
+# Этот тест усиливает protection и refactor-resistance для HTTP-контрактов project release.
+# target_file: src/tests/test_project_release_endpoints.py — проверка create, status и download endpoint’ов релиза.
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Awaitable, Callable
+from typing import cast
+from uuid import UUID
+
+from fastapi import APIRouter, FastAPI
+from fastapi.routing import APIRoute
+from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import UUID4
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response
+
+from application.export.contracts import ProjectReleaseDownload
+from presentation.export import (
+    ProjectReleaseCreate,
+    ProjectReleaseCreatedResponse,
+    ProjectReleaseReadResponse,
+    ProjectReleasesListResponse,
+)
+from presentation.http.controllers.projects.releases import create_project_release_router
+
+
+class StubAsyncDishkaContainer:
+    def __init__(self, handler: object) -> None:
+        self._handler = handler
+
+    def __call__(
+        self,
+        additional_context: object,
+        scope: object | None = None,
+    ) -> "StubAsyncDishkaContainer":
+        del additional_context
+        del scope
+        return self
+
+    async def __aenter__(self) -> "StubAsyncDishkaContainer":
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: object,
+        exc: object,
+        tb: object,
+    ) -> None:
+        del exc_type
+        del exc
+        del tb
+
+    async def get(self, type_hint: object, component: object | None = None) -> object:
+        del type_hint
+        del component
+        return self._handler
+
+
+class StubCreateProjectReleaseHandler:
+    async def __call__(
+        self,
+        project_id: UUID4,
+        request: ProjectReleaseCreate,
+    ) -> ProjectReleaseCreatedResponse:
+        assert request.name == "release-1"
+        return ProjectReleaseCreatedResponse(
+            release_id="550e8400-e29b-41d4-a716-446655440010",
+            project_id=str(project_id),
+            status="CREATED",
+            name=request.name,
+        )
+
+
+class StubGetProjectReleaseHandler:
+    async def __call__(
+        self, project_id: UUID4, release_id: UUID4
+    ) -> ProjectReleaseReadResponse:
+        return ProjectReleaseReadResponse(
+            id_=str(release_id),
+            project_id=str(project_id),
+            name="release-1",
+            status="READY",
+            file_name="release-1.zip",
+            archive_size=256,
+            error_message=None,
+            created_at="2026-04-14T12:00:00+00:00",
+            started_at="2026-04-14T12:01:00+00:00",
+            finished_at="2026-04-14T12:02:00+00:00",
+        )
+
+
+class StubDownloadProjectReleaseHandler:
+    async def __call__(
+        self,
+        project_id: UUID4,
+        release_id: UUID4,
+    ) -> ProjectReleaseDownload:
+        del project_id
+        del release_id
+        return ProjectReleaseDownload(
+            file_name="release-1.zip",
+            media_type="application/zip",
+            content=b"zip-content",
+        )
+
+
+class StubListProjectReleasesHandler:
+    async def __call__(
+        self,
+        project_id: UUID4,
+        limit: int,
+        offset: int,
+    ) -> ProjectReleasesListResponse:
+        assert limit == 20
+        assert offset == 0
+        return ProjectReleasesListResponse(
+            items=[
+                ProjectReleaseReadResponse(
+                    id_="550e8400-e29b-41d4-a716-446655440010",
+                    project_id=str(project_id),
+                    name="release-1",
+                    status="READY",
+                    file_name="release-1.zip",
+                    archive_size=256,
+                    error_message=None,
+                    created_at="2026-04-14T12:00:00+00:00",
+                    started_at="2026-04-14T12:01:00+00:00",
+                    finished_at="2026-04-14T12:02:00+00:00",
+                )
+            ],
+            total=1,
+        )
+
+
+def _dishka_request(handler: object, method: str) -> StarletteRequest:
+    async def receive() -> dict[str, object]:
+        return {
+            "type": "http.request",
+            "body": b"",
+            "more_body": False,
+        }
+
+    request = StarletteRequest(
+        scope={"type": "http", "method": method, "path": "/"},
+        receive=receive,
+    )
+    request.state.dishka_container = StubAsyncDishkaContainer(handler)
+    return request
+
+
+def _route(app: FastAPI, path: str, method: str) -> APIRoute:
+    return next(
+        route
+        for route in app.routes
+        if isinstance(route, APIRoute) and route.path == path and method in route.methods
+    )
+
+
+def test_list_project_releases_endpoint_returns_list_payload() -> None:
+    project_id: UUID4 = UUID("550e8400-e29b-41d4-a716-446655440001")  # type: ignore[assignment]
+    app = FastAPI()
+    projects_router = APIRouter(prefix="/project", tags=["project"])
+    projects_router.include_router(create_project_release_router())
+    app.include_router(projects_router)
+    route = _route(app, "/project/{project_id}/releases", "GET")
+    endpoint = cast(
+        Callable[..., Awaitable[ProjectReleasesListResponse]],
+        getattr(route.endpoint, "__wrapped__", route.endpoint),
+    )
+
+    result = asyncio.run(
+        endpoint(
+            project_id=project_id,
+            limit=20,
+            offset=0,
+            token=HTTPAuthorizationCredentials(scheme="Bearer", credentials="token"),
+            ___dishka_request=_dishka_request(StubListProjectReleasesHandler(), "GET"),
+        )
+    )
+
+    assert result.total == 1
+    assert result.items[0].status == "READY"
+    assert result.items[0].name == "release-1"
+
+
+def test_create_project_release_endpoint_returns_created_payload() -> None:
+    project_id: UUID4 = UUID("550e8400-e29b-41d4-a716-446655440001")  # type: ignore[assignment]
+    app = FastAPI()
+    projects_router = APIRouter(prefix="/project", tags=["project"])
+    projects_router.include_router(create_project_release_router())
+    app.include_router(projects_router)
+    route = _route(app, "/project/{project_id}/releases", "POST")
+    endpoint = cast(
+        Callable[..., Awaitable[ProjectReleaseCreatedResponse]],
+        getattr(route.endpoint, "__wrapped__", route.endpoint),
+    )
+
+    result = asyncio.run(
+        endpoint(
+            project_id=project_id,
+            request_body=ProjectReleaseCreate(name="release-1"),
+            token=HTTPAuthorizationCredentials(scheme="Bearer", credentials="token"),
+            ___dishka_request=_dishka_request(StubCreateProjectReleaseHandler(), "POST"),
+        )
+    )
+
+    assert result.status == "CREATED"
+    assert result.name == "release-1"
+
+
+def test_get_project_release_endpoint_returns_status_payload() -> None:
+    project_id: UUID4 = UUID("550e8400-e29b-41d4-a716-446655440001")  # type: ignore[assignment]
+    release_id: UUID4 = UUID("550e8400-e29b-41d4-a716-446655440010")  # type: ignore[assignment]
+    app = FastAPI()
+    projects_router = APIRouter(prefix="/project", tags=["project"])
+    projects_router.include_router(create_project_release_router())
+    app.include_router(projects_router)
+    route = _route(app, "/project/{project_id}/releases/{release_id}", "GET")
+    endpoint = cast(
+        Callable[..., Awaitable[ProjectReleaseReadResponse]],
+        getattr(route.endpoint, "__wrapped__", route.endpoint),
+    )
+
+    result = asyncio.run(
+        endpoint(
+            project_id=project_id,
+            release_id=release_id,
+            token=HTTPAuthorizationCredentials(scheme="Bearer", credentials="token"),
+            ___dishka_request=_dishka_request(StubGetProjectReleaseHandler(), "GET"),
+        )
+    )
+
+    assert result.status == "READY"
+    assert result.file_name == "release-1.zip"
+
+
+def test_download_project_release_endpoint_returns_zip_response() -> None:
+    project_id: UUID4 = UUID("550e8400-e29b-41d4-a716-446655440001")  # type: ignore[assignment]
+    release_id: UUID4 = UUID("550e8400-e29b-41d4-a716-446655440010")  # type: ignore[assignment]
+    app = FastAPI()
+    projects_router = APIRouter(prefix="/project", tags=["project"])
+    projects_router.include_router(create_project_release_router())
+    app.include_router(projects_router)
+    route = _route(app, "/project/{project_id}/releases/{release_id}/download", "GET")
+    endpoint = cast(
+        Callable[..., Awaitable[Response]],
+        getattr(route.endpoint, "__wrapped__", route.endpoint),
+    )
+
+    result = asyncio.run(
+        endpoint(
+            project_id=project_id,
+            release_id=release_id,
+            token=HTTPAuthorizationCredentials(scheme="Bearer", credentials="token"),
+            ___dishka_request=_dishka_request(StubDownloadProjectReleaseHandler(), "GET"),
+        )
+    )
+
+    assert result.body == b"zip-content"
+    assert result.headers["content-type"] == "application/zip"
+    assert "release-1.zip" in result.headers["content-disposition"]
+
+src/tests/test_project_release_infrastructure.py
+
+# Этот тест усиливает protection и refactor-resistance для export infrastructure.
+# target_file: src/tests/test_project_release_infrastructure.py — проверка сборки архива релиза и порядка snapshot-обхода дерева.
+
+from __future__ import annotations
+
+import asyncio
+import io
+import json
+import zipfile
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from typing import cast
+from uuid import UUID
+from y_py import YDoc, encode_state_as_update
+
+from domain.entities.project import ProjectId
+from domain.entities.user import UserId
+from domain.enums import ProjectUnitType
+from domain.export import ProjectReleaseId, ProjectReleaseService
+from infrastructure.export.gateways import (
+    HttpGroupPublishedContentGateway,
+    SqlAlchemyProjectTreeSnapshotGateway,
+)
+from infrastructure.export.storage import ReleaseStorageKeys, S3ProjectReleaseArtifactGateway
+
+from application.export import ProjectTreeNodeSnapshot, PublishedGroupContent
+
+
+class FakeScalarResult:
+    def __init__(self, nodes: list[SimpleNamespace]) -> None:
+        self._nodes = nodes
+
+    def all(self) -> list[SimpleNamespace]:
+        return self._nodes
+
+
+class FakeExecuteResult:
+    def __init__(self, nodes: list[SimpleNamespace]) -> None:
+        self._nodes = nodes
+
+    def scalars(self) -> FakeScalarResult:
+        return FakeScalarResult(self._nodes)
+
+
+class FakeAsyncSession:
+    def __init__(self, nodes: list[SimpleNamespace]) -> None:
+        self._nodes = nodes
+
+    async def execute(self, statement: object) -> FakeExecuteResult:
+        del statement
+        return FakeExecuteResult(self._nodes)
+
+
+class FakeS3Client:
+    def __init__(self) -> None:
+        self.put_calls: list[dict[str, object]] = []
+
+    async def __aenter__(self) -> "FakeS3Client":
+        return self
+
+    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type
+        del exc
+        del tb
+
+    async def put_object(self, **kwargs: object) -> None:
+        self.put_calls.append(kwargs)
+
+
+class FakeS3ProjectReleaseArtifactGateway(S3ProjectReleaseArtifactGateway):
+    def __init__(self, client: FakeS3Client) -> None:
+        self._bucket = "releases"
+        self._client = client
+
+    def _create_client(self) -> FakeS3Client:
+        return self._client
+
+
+def _release(now: datetime):
+    return ProjectReleaseService(
+        id_generator=lambda: ProjectReleaseId("550e8400-e29b-41d4-a716-446655440099")
+    ).create_release(
+        project_id=ProjectId("550e8400-e29b-41d4-a716-446655440001"),
+        requested_by=UserId("550e8400-e29b-41d4-a716-446655440002"),
+        name="First release",
+        now=now,
+    )
+
+
+def test_project_release_artifact_gateway_builds_archive_and_metadata() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 12, 0, tzinfo=timezone.utc)
+        client = FakeS3Client()
+        gateway = FakeS3ProjectReleaseArtifactGateway(client)
+
+        artifact = await gateway.build_and_store(
+            release=_release(now),
+            tree=[
+                ProjectTreeNodeSnapshot(path="src", unit_type="DIR"),
+                ProjectTreeNodeSnapshot(
+                    path="src/main.py",
+                    unit_type="DOC",
+                    content_ref="550e8400-e29b-41d4-a716-446655440010",
+                ),
+            ],
+            contents=[
+                PublishedGroupContent(
+                    content_id="550e8400-e29b-41d4-a716-446655440010",
+                    content=b"print('hello')\n",
+                )
+            ],
+            finished_at=now,
+        )
+
+        assert artifact.artifact_key == ReleaseStorageKeys.archive(
+            "550e8400-e29b-41d4-a716-446655440001",
+            "550e8400-e29b-41d4-a716-446655440099",
+        )
+        assert artifact.file_name == "First-release.zip"
+        assert len(client.put_calls) == 2
+
+        archive_call = client.put_calls[0]
+        archive_body = cast(bytes, archive_call["Body"])
+        archive = zipfile.ZipFile(io.BytesIO(archive_body))
+
+        assert archive_call["Bucket"] == "releases"
+        assert archive_call["Key"] == artifact.artifact_key
+        assert archive.namelist() == ["src/", "src/main.py"]
+        assert archive.read("src/main.py") == b"print('hello')\n"
+
+        metadata_call = client.put_calls[1]
+        metadata = json.loads(cast(bytes, metadata_call["Body"]).decode())
+
+        assert metadata_call["Key"] == ReleaseStorageKeys.meta(
+            "550e8400-e29b-41d4-a716-446655440001",
+            "550e8400-e29b-41d4-a716-446655440099",
+        )
+        assert metadata["status"] == "READY"
+        assert metadata["file_name"] == "First-release.zip"
+        assert metadata["size"] == artifact.archive_size
+
+    asyncio.run(scenario())
+
+
+def test_project_tree_snapshot_gateway_preserves_tree_order_iteratively() -> None:
+    async def scenario() -> None:
+        root_id = UUID("550e8400-e29b-41d4-a716-446655440001")
+        src_id = UUID("550e8400-e29b-41d4-a716-446655440002")
+
+        nodes = [
+            SimpleNamespace(
+                id_=root_id,
+                parent_id=None,
+                name="",
+                unit_type=ProjectUnitType.DIRECTORY,
+                attributes={},
+            ),
+            SimpleNamespace(
+                id_=src_id,
+                parent_id=root_id,
+                name="src",
+                unit_type=ProjectUnitType.DIRECTORY,
+                attributes={},
+            ),
+            SimpleNamespace(
+                id_=UUID("550e8400-e29b-41d4-a716-446655440003"),
+                parent_id=src_id,
+                name="a.py",
+                unit_type=ProjectUnitType.DOCUMENT,
+                attributes={"content_ref": "a-content"},
+            ),
+            SimpleNamespace(
+                id_=UUID("550e8400-e29b-41d4-a716-446655440004"),
+                parent_id=src_id,
+                name="b.py",
+                unit_type=ProjectUnitType.DOCUMENT,
+                attributes={"content_ref": "b-content"},
+            ),
+            SimpleNamespace(
+                id_=UUID("550e8400-e29b-41d4-a716-446655440005"),
+                parent_id=root_id,
+                name="z.md",
+                unit_type=ProjectUnitType.DOCUMENT,
+                attributes={"content_ref": "z-content"},
+            ),
+        ]
+        gateway = SqlAlchemyProjectTreeSnapshotGateway(FakeAsyncSession(nodes))
+
+        snapshots = await gateway.by_project(
+            ProjectId("550e8400-e29b-41d4-a716-446655440010")
+        )
+
+        assert snapshots == [
+            ProjectTreeNodeSnapshot(path="src", unit_type="DIR", content_ref=None),
+            ProjectTreeNodeSnapshot(
+                path="src/a.py",
+                unit_type="DOC",
+                content_ref="a-content",
+            ),
+            ProjectTreeNodeSnapshot(
+                path="src/b.py",
+                unit_type="DOC",
+                content_ref="b-content",
+            ),
+            ProjectTreeNodeSnapshot(
+                path="z.md",
+                unit_type="DOC",
+                content_ref="z-content",
+            ),
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_http_group_published_content_gateway_decodes_base64_payload() -> None:
+    decoded = HttpGroupPublishedContentGateway._decode_content(
+        raw_content="cHJpbnQoJ2hlbGxvJykK",
+        encoding="base64",
+    )
+    assert decoded == b"print('hello')\n"
+
+
+def test_http_group_published_content_gateway_keeps_plain_text_payload() -> None:
+    decoded = HttpGroupPublishedContentGateway._decode_content(
+        raw_content="print('hello')\n",
+        encoding=None,
+    )
+    assert decoded == b"print('hello')\n"
+
+
+def test_http_group_published_content_gateway_decodes_byte_array_payload() -> None:
+    decoded = HttpGroupPublishedContentGateway._decode_content(
+        raw_content=[112, 114, 105, 110, 116, 40, 39, 104, 105, 39, 41, 10],
+        encoding=None,
+    )
+    assert decoded == b"print('hi')\n"
+
+
+def test_http_group_published_content_gateway_decodes_yjs_document() -> None:
+    doc = YDoc()
+    with doc.begin_transaction() as txn:
+        text = doc.get_text("content")
+        text.extend(txn, "print('hello')\n")
+
+    raw_update = encode_state_as_update(doc)
+    decoded = HttpGroupPublishedContentGateway._decode_document(raw_update)
+    assert decoded == b"print('hello')\n"
+
+src/tests/test_project_release_usecases.py
+
+# Этот тест усиливает protection и refactor-resistance для сценариев создания и сборки project release.
+# target_file: src/tests/test_project_release_usecases.py — проверка create release composition и build release composition.
+
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
+from application.export import (
+    BuildProjectReleaseComposition,
+    CreateProjectReleaseComposition,
+    CreateProjectReleaseRequest,
+    CreateProjectReleaseUsecase,
+    ListProjectReleasesRequest,
+    ListProjectReleasesUsecase,
+    ProjectTreeNodeSnapshot,
+    PublishedGroupContent,
+    StoredProjectReleaseArtifact,
+)
+from application.exceptions import AccessDeniedError
+from application.ports.gateways.errors import GatewayFailedError
+from domain.entities import UserId
+from domain.entities.project import Project, ProjectId
+from domain.enums import ProjectRole
+from domain.export import (
+    ProjectRelease,
+    ProjectReleaseId,
+    ProjectReleaseService,
+    ProjectReleaseStatus,
+)
+from domain.value_objects import PassedDatetime, Title
+
+
+class FakeClock:
+    def __init__(self, now: datetime) -> None:
+        self._now = now
+
+    def now(self) -> datetime:
+        return self._now
+
+
+class FakeCurrentUserService:
+    def __init__(self, user_id: str) -> None:
+        self._user_id = user_id
+
+    async def __call__(self):
+        return type("CurrentUser", (), {"id_": self._user_id})()
+
+
+class FakeProjectQueryGateway:
+    def __init__(self, project: Project) -> None:
+        self._project = project
+
+    async def by_id(self, project_id: ProjectId) -> Project:
+        value = project_id.value if hasattr(project_id, "value") else str(project_id)
+        assert value == self._project.id_
+        return self._project
+
+
+class FakeReleaseCommandGateway:
+    def __init__(self) -> None:
+        self.added: list[ProjectRelease] = []
+        self.updated: list[ProjectRelease] = []
+
+    async def add(self, release: ProjectRelease) -> None:
+        self.added.append(release)
+
+    async def update(self, release: ProjectRelease) -> None:
+        self.updated.append(release)
+
+
+class FakeTaskGateway:
+    def __init__(self) -> None:
+        self.tasks: list[object] = []
+
+    async def add(self, task: object) -> None:
+        self.tasks.append(task)
+
+
+class FakeUnitOfWork:
+    async def __aenter__(self) -> "FakeUnitOfWork":
+        return self
+
+    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type
+        del exc
+        del tb
+
+
+class FakeReleaseQueryGateway:
+    def __init__(self, release: ProjectRelease) -> None:
+        self._release = release
+
+    async def by_id(self, release_id) -> ProjectRelease | None:
+        value = release_id.value if hasattr(release_id, "value") else str(release_id)
+        assert value == self._release.id_
+        return self._release
+
+
+class FakeListProjectReleasesQueryGateway:
+    def __init__(self, releases: list[ProjectRelease]) -> None:
+        self._releases = releases
+
+    async def by_id(self, release_id) -> ProjectRelease | None:
+        del release_id
+        raise AssertionError("by_id must not be called")
+
+    async def list_by_project(self, project_id, status, limit, offset):
+        assert status is ProjectReleaseStatus.READY
+        assert (
+            project_id.value
+            == "550e8400-e29b-41d4-a716-446655440001"
+        )
+        filtered = [r for r in self._releases if r.status is status]
+        total = len(filtered)
+        return filtered[offset : offset + limit], total
+
+
+class FakeTreeSnapshotGateway:
+    async def by_project(self, project_id: ProjectId) -> list[ProjectTreeNodeSnapshot]:
+        value = project_id.value if hasattr(project_id, "value") else str(project_id)
+        assert value == "550e8400-e29b-41d4-a716-446655440001"
+        return [
+            ProjectTreeNodeSnapshot(path="src", unit_type="DIRECTORY"),
+            ProjectTreeNodeSnapshot(
+                path="src/main.py",
+                unit_type="DOC",
+                content_ref="550e8400-e29b-41d4-a716-446655440010",
+            ),
+        ]
+
+
+class FakeGroupPublishedContentGateway:
+    async def by_group(self, group_id: ProjectId) -> list[PublishedGroupContent]:
+        value = group_id.value if hasattr(group_id, "value") else str(group_id)
+        assert value == "550e8400-e29b-41d4-a716-446655440001"
+        return [
+            PublishedGroupContent(
+                content_id="550e8400-e29b-41d4-a716-446655440010",
+                content=b"print('hello')\n",
+            )
+        ]
+
+
+class FakeArtifactGateway:
+    async def build_and_store(
+        self,
+        release: ProjectRelease,
+        tree: list[ProjectTreeNodeSnapshot],
+        contents: list[PublishedGroupContent],
+        finished_at: datetime,
+    ) -> StoredProjectReleaseArtifact:
+        assert release.name == "First release"
+        assert len(tree) == 2
+        assert len(contents) == 1
+        assert finished_at.tzinfo is not None
+        return StoredProjectReleaseArtifact(
+            artifact_key="550e8400-e29b-41d4-a716-446655440001/release/archive.zip",
+            file_name="first-release.zip",
+            archive_size=128,
+        )
+
+    async def download(self, release: ProjectRelease):
+        raise AssertionError("download must not be called in this test")
+
+
+class FailingArtifactGateway:
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    async def build_and_store(
+        self,
+        release: ProjectRelease,
+        tree: list[ProjectTreeNodeSnapshot],
+        contents: list[PublishedGroupContent],
+        finished_at: datetime,
+    ) -> StoredProjectReleaseArtifact:
+        del release
+        del tree
+        del contents
+        del finished_at
+        raise self._error
+
+    async def download(self, release: ProjectRelease):
+        del release
+        raise AssertionError("download must not be called in this test")
+
+
+def _project(owner_id: str, now: datetime) -> Project:
+    return Project(
+        id_=ProjectId("550e8400-e29b-41d4-a716-446655440001"),
+        title=Title("Demo_project"),
+        description="",
+        root_directory=None,
+        members={UserId(owner_id): ProjectRole.OWNER},
+        created_at=PassedDatetime(now, now),
+        is_private=False,
+    )
+
+
+def _ready_release(release_id: str, name: str, now: datetime) -> ProjectRelease:
+    service = ProjectReleaseService(id_generator=lambda: ProjectReleaseId(release_id))
+    created = service.create_release(
+        project_id=ProjectId("550e8400-e29b-41d4-a716-446655440001"),
+        requested_by=UserId("550e8400-e29b-41d4-a716-446655440002"),
+        name=name,
+        now=now,
+    )
+    return service.mark_ready(
+        created,
+        artifact_key=f"{release_id}/a.zip",
+        file_name=f"{name}.zip",
+        archive_size=64,
+        now=now,
+    )
+
+
+def test_list_project_releases_usecase_returns_ready_releases_for_member() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 12, 0, tzinfo=timezone.utc)
+        current_user_id = "550e8400-e29b-41d4-a716-446655440002"
+        project = _project(current_user_id, now)
+        releases = [
+            _ready_release(
+                "550e8400-e29b-41d4-a716-446655440020",
+                "Second",
+                now,
+            ),
+            _ready_release(
+                "550e8400-e29b-41d4-a716-446655440021",
+                "First",
+                now,
+            ),
+        ]
+        usecase = ListProjectReleasesUsecase(
+            current_user=FakeCurrentUserService(current_user_id),
+            project_queries=FakeProjectQueryGateway(project),
+            release_queries=FakeListProjectReleasesQueryGateway(releases),
+        )
+
+        page = await usecase(
+            ListProjectReleasesRequest.from_primitives(
+                project_id=project.id_,
+                limit=1,
+                offset=1,
+            )
+        )
+
+        assert page["total"] == 2
+        assert len(page["items"]) == 1
+        assert page["items"][0]["name"] == "First"
+
+    asyncio.run(scenario())
+
+
+def test_list_project_releases_usecase_denies_non_member() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 12, 0, tzinfo=timezone.utc)
+        owner_id = "550e8400-e29b-41d4-a716-446655440002"
+        outsider_id = "550e8400-e29b-41d4-a716-446655440099"
+        project = _project(owner_id, now)
+        releases = [
+            _ready_release(
+                "550e8400-e29b-41d4-a716-446655440020",
+                "Only",
+                now,
+            ),
+        ]
+        usecase = ListProjectReleasesUsecase(
+            current_user=FakeCurrentUserService(outsider_id),
+            project_queries=FakeProjectQueryGateway(project),
+            release_queries=FakeListProjectReleasesQueryGateway(releases),
+        )
+
+        try:
+            await usecase(
+                ListProjectReleasesRequest.from_primitives(
+                    project_id=project.id_,
+                    limit=20,
+                    offset=0,
+                )
+            )
+        except AccessDeniedError:
+            return
+        raise AssertionError("expected AccessDeniedError")
+
+    asyncio.run(scenario())
+
+
+def test_create_project_release_composition_creates_release_and_outbox_task() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 12, 0, tzinfo=timezone.utc)
+        current_user_id = "550e8400-e29b-41d4-a716-446655440002"
+        project = _project(current_user_id, now)
+        release_commands = FakeReleaseCommandGateway()
+        task_gateway = FakeTaskGateway()
+        usecase = CreateProjectReleaseUsecase(
+            current_user=FakeCurrentUserService(current_user_id),
+            project_queries=FakeProjectQueryGateway(project),
+            release_service=ProjectReleaseService(
+                id_generator=lambda: ProjectReleaseId(
+                    "550e8400-e29b-41d4-a716-446655440003"
+                )
+            ),
+            clock=FakeClock(now),
+        )
+        composition = CreateProjectReleaseComposition(
+            clock=FakeClock(now),
+            unit_of_work=FakeUnitOfWork(),
+            usecase=usecase,
+            release_commands=release_commands,
+            task_service=type(
+                "TaskServiceStub",
+                (),
+                {
+                    "create_task": staticmethod(
+                        lambda task_type, payload, now: SimpleNamespace(
+                            id_="550e8400-e29b-41d4-a716-446655440004",
+                            task_type=task_type,
+                            payload=payload,
+                            created_at=now,
+                        )
+                    )
+                },
+            )(),
+            task_gateway=task_gateway,
+        )
+
+        release = await composition(
+            CreateProjectReleaseRequest.from_primitives(
+                project_id=project.id_,
+                name="First release",
+            )
+        )
+
+        assert release.status is ProjectReleaseStatus.CREATED
+        assert release_commands.added[0].name == "First release"
+        assert task_gateway.tasks[0].task_type == "project.releases.created"
+        assert task_gateway.tasks[0].payload == {
+            "project_id": project.id_,
+            "release_id": "550e8400-e29b-41d4-a716-446655440003",
+        }
+
+    asyncio.run(scenario())
+
+
+def test_build_project_release_composition_marks_release_ready() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 13, 0, tzinfo=timezone.utc)
+        release = ProjectReleaseService(
+            id_generator=lambda: ProjectReleaseId(
+                "550e8400-e29b-41d4-a716-446655440099"
+            )
+        ).create_release(
+            project_id=ProjectId("550e8400-e29b-41d4-a716-446655440001"),
+            requested_by=UserId("550e8400-e29b-41d4-a716-446655440002"),
+            name="First release",
+            now=now,
+        )
+        release_commands = FakeReleaseCommandGateway()
+        composition = BuildProjectReleaseComposition(
+            clock=FakeClock(now),
+            unit_of_work=FakeUnitOfWork(),
+            release_queries=FakeReleaseQueryGateway(release),
+            release_commands=release_commands,
+            release_service=ProjectReleaseService(
+                id_generator=lambda: ProjectReleaseId(
+                    "550e8400-e29b-41d4-a716-446655440099"
+                )
+            ),
+            tree_snapshots=FakeTreeSnapshotGateway(),
+            group_content=FakeGroupPublishedContentGateway(),
+            artifacts=FakeArtifactGateway(),
+        )
+
+        await composition(
+            project_id="550e8400-e29b-41d4-a716-446655440001",
+            release_id=release.id_,
+        )
+
+        assert release_commands.updated[0].status is ProjectReleaseStatus.PROCESSING
+        assert release_commands.updated[1].status is ProjectReleaseStatus.READY
+        assert release_commands.updated[1].artifact_key is not None
+        assert release_commands.updated[1].archive_size == 128
+
+    asyncio.run(scenario())
+
+
+def test_build_project_release_composition_marks_release_failed_with_gateway_error() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 13, 0, tzinfo=timezone.utc)
+        release = ProjectReleaseService(
+            id_generator=lambda: ProjectReleaseId(
+                "550e8400-e29b-41d4-a716-446655440099"
+            )
+        ).create_release(
+            project_id=ProjectId("550e8400-e29b-41d4-a716-446655440001"),
+            requested_by=UserId("550e8400-e29b-41d4-a716-446655440002"),
+            name="First release",
+            now=now,
+        )
+        release_commands = FakeReleaseCommandGateway()
+        composition = BuildProjectReleaseComposition(
+            clock=FakeClock(now),
+            unit_of_work=FakeUnitOfWork(),
+            release_queries=FakeReleaseQueryGateway(release),
+            release_commands=release_commands,
+            release_service=ProjectReleaseService(
+                id_generator=lambda: ProjectReleaseId(
+                    "550e8400-e29b-41d4-a716-446655440099"
+                )
+            ),
+            tree_snapshots=FakeTreeSnapshotGateway(),
+            group_content=FakeGroupPublishedContentGateway(),
+            artifacts=FailingArtifactGateway(
+                GatewayFailedError("Cannot list group content: collaboration service is unavailable")
+            ),
+        )
+
+        await composition(
+            project_id="550e8400-e29b-41d4-a716-446655440001",
+            release_id=release.id_,
+        )
+
+        assert release_commands.updated[0].status is ProjectReleaseStatus.PROCESSING
+        assert release_commands.updated[1].status is ProjectReleaseStatus.FAILED
+        assert (
+            release_commands.updated[1].error_message
+            == "Cannot list group content: collaboration service is unavailable"
+        )
+
+    asyncio.run(scenario())
+
+
+def test_build_project_release_composition_masks_unexpected_errors() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 14, 13, 0, tzinfo=timezone.utc)
+        release = ProjectReleaseService(
+            id_generator=lambda: ProjectReleaseId(
+                "550e8400-e29b-41d4-a716-446655440099"
+            )
+        ).create_release(
+            project_id=ProjectId("550e8400-e29b-41d4-a716-446655440001"),
+            requested_by=UserId("550e8400-e29b-41d4-a716-446655440002"),
+            name="First release",
+            now=now,
+        )
+        release_commands = FakeReleaseCommandGateway()
+        composition = BuildProjectReleaseComposition(
+            clock=FakeClock(now),
+            unit_of_work=FakeUnitOfWork(),
+            release_queries=FakeReleaseQueryGateway(release),
+            release_commands=release_commands,
+            release_service=ProjectReleaseService(
+                id_generator=lambda: ProjectReleaseId(
+                    "550e8400-e29b-41d4-a716-446655440099"
+                )
+            ),
+            tree_snapshots=FakeTreeSnapshotGateway(),
+            group_content=FakeGroupPublishedContentGateway(),
+            artifacts=FailingArtifactGateway(RuntimeError("boom")),
+        )
+
+        await composition(
+            project_id="550e8400-e29b-41d4-a716-446655440001",
+            release_id=release.id_,
+        )
+
+        assert release_commands.updated[1].status is ProjectReleaseStatus.FAILED
+        assert (
+            release_commands.updated[1].error_message
+            == "Unexpected error while building project release"
+        )
+
+    asyncio.run(scenario())
+
+src/tests/test_project_task_completion_permissions.py
+
+from datetime import datetime
+
+from application.ports.authorization import (
+    CanCancelProjectTask,
+    CanCompleteProjectTask,
+    ProjectTaskCancelContext,
+    ProjectTaskCompleteContext,
+)
+from domain.entities import (
+    ProjectId,
+    ProjectTask,
+    ProjectTaskId,
+    ProjectTaskGroupAssignee,
+    ProjectTaskRoleAssignee,
+    ProjectTaskUserAssignee,
+    UserId,
+)
+from domain.entities.project_group import ProjectGroupId
+from domain.enums import ProjectRole, ProjectTaskStatus
+from domain.services import ProjectTaskAssigneeAppliesVisitor
+
+
+def _task(*, assignees: list) -> ProjectTask:
+    now = datetime(2026, 4, 28, 10, 0, 0)
+    return ProjectTask(
+        id_=ProjectTaskId("550e8400-e29b-41d4-a716-446655440101"),
+        project_id=ProjectId("550e8400-e29b-41d4-a716-446655440102"),
+        title="Task",
+        description="Desc",
+        status=ProjectTaskStatus.IN_PROGRESS,
+        creator_id=UserId("550e8400-e29b-41d4-a716-446655440103"),
+        start_at=now,
+        end_at=now.replace(hour=12),
+        created_at=now,
+        updated_at=now,
+        assignees=assignees,
+    )
+
+
+def test_assignee_applies_visitor_matches_user_role_and_group() -> None:
+    user_id = UserId("550e8400-e29b-41d4-a716-446655440104")
+    group_id = ProjectGroupId("550e8400-e29b-41d4-a716-446655440105")
+    visitor = ProjectTaskAssigneeAppliesVisitor(
+        user_id=user_id,
+        user_role=ProjectRole.MEMBER,
+        user_group_ids=frozenset({group_id}),
+    )
+
+    assert ProjectTaskUserAssignee(user_id.value).accept(visitor) is True
+    assert ProjectTaskRoleAssignee(ProjectRole.MEMBER).accept(visitor) is True
+    assert ProjectTaskGroupAssignee(group_id).accept(visitor) is True
+
+
+def test_can_complete_project_task_requires_creator_owner_or_assignee() -> None:
+    permission = CanCompleteProjectTask()
+    subject_id = UserId("550e8400-e29b-41d4-a716-446655440106")
+    task = _task(assignees=[])
+
+    denied = permission.is_satisfied_by(
+        ProjectTaskCompleteContext(
+            subject_id=subject_id,
+            subject_role=ProjectRole.MEMBER,
+            task=task,
+            is_assigned=False,
+        )
+    )
+    allowed = permission.is_satisfied_by(
+        ProjectTaskCompleteContext(
+            subject_id=subject_id,
+            subject_role=ProjectRole.MEMBER,
+            task=task,
+            is_assigned=True,
+        )
+    )
+
+    assert denied.success is False
+    assert allowed.success is True
+
+
+def test_can_cancel_project_task_allows_only_creator_or_owner() -> None:
+    permission = CanCancelProjectTask()
+    task = _task(assignees=[])
+
+    creator_allowed = permission.is_satisfied_by(
+        ProjectTaskCancelContext(
+            subject_id=task.creator_id,
+            subject_role=ProjectRole.MEMBER,
+            task=task,
+        )
+    )
+    owner_allowed = permission.is_satisfied_by(
+        ProjectTaskCancelContext(
+            subject_id=UserId("550e8400-e29b-41d4-a716-446655440107"),
+            subject_role=ProjectRole.OWNER,
+            task=task,
+        )
+    )
+    denied = permission.is_satisfied_by(
+        ProjectTaskCancelContext(
+            subject_id=UserId("550e8400-e29b-41d4-a716-446655440108"),
+            subject_role=ProjectRole.MEMBER,
+            task=task,
+        )
+    )
+
+    assert creator_allowed.success is True
+    assert owner_allowed.success is True
+    assert denied.success is False
+
+src/tests/test_project_task_usecases.py
+
+import asyncio
+from datetime import datetime
+from types import SimpleNamespace
+
+import pytest
+
+from application.exceptions import AccessDeniedError
+from application.usecases import (
+    AssignProjectTaskUsecase,
+    CreateProjectTaskRequest,
+    CreateProjectTaskUsecase,
+)
+from domain.entities import (
+    ProjectGroupId,
+    ProjectId,
+    ProjectTaskGroupAssignee,
+    ProjectTaskId,
+    ProjectTaskRoleAssignee,
+    ProjectTaskUserAssignee,
+    UserId,
+)
+from domain.enums import ProjectRole
+from domain.services import ProjectTaskDomainService
+
+
+class ClockStub:
+    def __init__(self, now):
+        self._now = now
+
+    def now(self):
+        return self._now
+
+
+class CurrentUserStub:
+    def __init__(self, user_id: str) -> None:
+        self._user = SimpleNamespace(id_=user_id)
+
+    async def __call__(self):
+        return self._user
+
+
+class ProjectQueriesStub:
+    def __init__(self, project):
+        self._project = project
+
+    async def by_id(self, _project_id: str):
+        return self._project
+
+
+class ProjectGroupQueriesStub:
+    def __init__(self):
+        self._groups: dict[ProjectGroupId, object] = {}
+        self._memberships: dict[tuple[str, str], frozenset[ProjectGroupId]] = {}
+
+    async def by_id(self, group_id: ProjectGroupId):
+        return self._groups[group_id]
+
+    async def group_ids_for_user(
+        self, project_id: ProjectId, user_id: UserId
+    ) -> frozenset[ProjectGroupId]:
+        return self._memberships.get((project_id.value, user_id.value), frozenset())
+
+
+class TaskCommandsStub:
+    def __init__(self) -> None:
+        self.added_task = None
+
+    async def add(self, task) -> None:
+        self.added_task = task
+
+
+class ProjectTaskIdGeneratorStub:
+    def __call__(self):
+        return ProjectTaskId("550e8400-e29b-41d4-a716-446655440090")
+
+
+def test_create_project_task_denies_member() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 26, 10, 0, 0)
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440010")
+        project = SimpleNamespace(
+            id_="550e8400-e29b-41d4-a716-446655440011",
+            members={current_user_id: ProjectRole.MEMBER},
+        )
+        usecase = CreateProjectTaskUsecase(
+            current_user=CurrentUserStub(current_user_id.value),
+            project_queries=ProjectQueriesStub(project),
+            task_commands=TaskCommandsStub(),
+            task_service=ProjectTaskDomainService(ProjectTaskIdGeneratorStub()),
+            clock=ClockStub(now),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await usecase(
+                CreateProjectTaskRequest.from_primitives(
+                    project_id=project.id_,
+                    title="Prepare KPI",
+                    description="Build weekly KPI summary",
+                    start_at=now,
+                    end_at=now.replace(hour=12),
+                    assignees=[],
+                )
+            )
+
+    asyncio.run(scenario())
+
+
+def test_create_project_task_allows_lead_without_assignees() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 26, 10, 0, 0)
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440020")
+        project = SimpleNamespace(
+            id_="550e8400-e29b-41d4-a716-446655440021",
+            members={current_user_id: ProjectRole.LEAD},
+        )
+        task_commands = TaskCommandsStub()
+        usecase = CreateProjectTaskUsecase(
+            current_user=CurrentUserStub(current_user_id.value),
+            project_queries=ProjectQueriesStub(project),
+            task_commands=task_commands,
+            task_service=ProjectTaskDomainService(ProjectTaskIdGeneratorStub()),
+            clock=ClockStub(now),
+        )
+
+        response = await usecase(
+            CreateProjectTaskRequest.from_primitives(
+                project_id=project.id_,
+                title="Prepare roadmap",
+                description="Draft project roadmap",
+                start_at=now,
+                end_at=now.replace(hour=11),
+                assignees=[],
+            )
+        )
+
+        assert response["project_id"].value == project.id_
+        assert task_commands.added_task is not None
+        assert task_commands.added_task.title == "Prepare roadmap"
+
+    asyncio.run(scenario())
+
+
+def test_assign_role_denies_member_subject() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 26, 10, 0, 0)
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440030")
+        project = SimpleNamespace(
+            id_="550e8400-e29b-41d4-a716-446655440031",
+            members={current_user_id: ProjectRole.MEMBER},
+        )
+        task_commands = TaskCommandsStub()
+        create_usecase = CreateProjectTaskUsecase(
+            current_user=CurrentUserStub(current_user_id.value),
+            project_queries=ProjectQueriesStub(project),
+            task_commands=task_commands,
+            task_service=ProjectTaskDomainService(ProjectTaskIdGeneratorStub()),
+            clock=ClockStub(now),
+        )
+        groups = ProjectGroupQueriesStub()
+        usecase = AssignProjectTaskUsecase(
+            create_task_usecase=create_usecase,
+            current_user=CurrentUserStub(current_user_id.value),
+            project_queries=ProjectQueriesStub(project),
+            project_group_queries=groups,
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await usecase(
+                CreateProjectTaskRequest.from_primitives(
+                    project_id=project.id_,
+                    title="Prepare KPI",
+                    description="Build weekly KPI summary",
+                    start_at=now,
+                    end_at=now.replace(hour=12),
+                    assignees=[ProjectTaskRoleAssignee(ProjectRole.MEMBER)],
+                )
+            )
+
+    asyncio.run(scenario())
+
+
+def test_assign_user_denies_target_outside_project() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 26, 10, 0, 0)
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440040")
+        target_user_id = UserId("550e8400-e29b-41d4-a716-446655440099")
+        project = SimpleNamespace(
+            id_="550e8400-e29b-41d4-a716-446655440042",
+            members={
+                current_user_id: ProjectRole.LEAD,
+            },
+        )
+        create_usecase = CreateProjectTaskUsecase(
+            current_user=CurrentUserStub(current_user_id.value),
+            project_queries=ProjectQueriesStub(project),
+            task_commands=TaskCommandsStub(),
+            task_service=ProjectTaskDomainService(ProjectTaskIdGeneratorStub()),
+            clock=ClockStub(now),
+        )
+        usecase = AssignProjectTaskUsecase(
+            create_task_usecase=create_usecase,
+            current_user=CurrentUserStub(current_user_id.value),
+            project_queries=ProjectQueriesStub(project),
+            project_group_queries=ProjectGroupQueriesStub(),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await usecase(
+                CreateProjectTaskRequest.from_primitives(
+                    project_id=project.id_,
+                    title="Prepare KPI",
+                    description="Build weekly KPI summary",
+                    start_at=now,
+                    end_at=now.replace(hour=12),
+                    assignees=[ProjectTaskUserAssignee(target_user_id.value)],
+                )
+            )
+
+    asyncio.run(scenario())
+
+
+def test_assign_group_denies_non_member_subject() -> None:
+    async def scenario() -> None:
+        now = datetime(2026, 4, 26, 10, 0, 0)
+        current_user_id = UserId("550e8400-e29b-41d4-a716-446655440050")
+        project_id = "550e8400-e29b-41d4-a716-446655440051"
+        group_id = ProjectGroupId("550e8400-e29b-41d4-a716-446655440052")
+        project = SimpleNamespace(
+            id_=project_id,
+            members={current_user_id: ProjectRole.LEAD},
+        )
+        create_usecase = CreateProjectTaskUsecase(
+            current_user=CurrentUserStub(current_user_id.value),
+            project_queries=ProjectQueriesStub(project),
+            task_commands=TaskCommandsStub(),
+            task_service=ProjectTaskDomainService(ProjectTaskIdGeneratorStub()),
+            clock=ClockStub(now),
+        )
+        groups = ProjectGroupQueriesStub()
+        usecase = AssignProjectTaskUsecase(
+            create_task_usecase=create_usecase,
+            current_user=CurrentUserStub(current_user_id.value),
+            project_queries=ProjectQueriesStub(project),
+            project_group_queries=groups,
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await usecase(
+                CreateProjectTaskRequest.from_primitives(
+                    project_id=project_id,
+                    title="Prepare KPI",
+                    description="Build weekly KPI summary",
+                    start_at=now,
+                    end_at=now.replace(hour=12),
+                    assignees=[ProjectTaskGroupAssignee(group_id)],
+                )
+            )
+
+    asyncio.run(scenario())
+
+src/tests/test_set_project_access_usecase.py
+
+import asyncio
+from datetime import datetime, timezone
+from typing import Optional
+from unittest.mock import Mock
+
+import pytest
+
+from application.exceptions import AccessDeniedError, ProjectNotFoundError
+from application.usecases.set_project_access import (
+    SetProjectAccessRequest,
+    SetProjectAccessUsecase,
+)
+from domain.entities import Project, ProjectId, User, UserId
+from domain.enums import ProjectRole
+from domain.services import ProjectService
+from domain.value_objects import Name, PassedDatetime, Title
+
+
+class FakeClock:
+    def __init__(self, now: datetime) -> None:
+        self._now: datetime = now
+
+    def now(self) -> datetime:
+        return self._now
+
+
+class FakeProjectQueries:
+    def __init__(
+        self,
+        *,
+        project: Optional[Project],
+        exc: Optional[Exception],
+    ) -> None:
+        self._project: Optional[Project] = project
+        self._exc: Optional[Exception] = exc
+        self.received_project_id: Optional[str] = None
+
+    async def by_id(self, project_id: str) -> Project:
+        self.received_project_id = project_id
+        if self._exc is not None:
+            raise self._exc
+        if self._project is None:
+            raise ProjectNotFoundError("Project not found")
+        return self._project
+
+
+class FakeProjectCommands:
+    def __init__(self) -> None:
+        self.updated_projects: list[Project] = []
+
+    async def update(self, project: Project) -> None:
+        self.updated_projects.append(project)
+
+
+class FakeCurrentUserService:
+    def __init__(self, user: User) -> None:
+        self._user: User = user
+        self.called: bool = False
+
+    async def __call__(self) -> User:
+        self.called = True
+        return self._user
+
+
+def _build_owner_project(*, project_uuid: str, owner_uuid: str) -> Project:
+    now: datetime = datetime(2026, 3, 26, tzinfo=timezone.utc)
+    return Project(
+        id_=ProjectId(project_uuid),
+        title=Title("TestProject"),
+        root_directory=None,
+        description="",
+        members={UserId(owner_uuid): ProjectRole.OWNER},
+        created_at=PassedDatetime(now, now),
+    )
+
+
+def _build_user(*, user_uuid: str, name: str) -> User:
+    return User(
+        id_=UserId(user_uuid),
+        name=Name(name),
+        bio="",
+    )
+
+
+def test_set_project_access_updates_is_private_when_authorized() -> None:
+    # protection + refactor-resistance: фиксируем контракт смены privateness у OWNER.
+
+    project_uuid: str = "550e8400-e29b-41d4-a716-446655440001"
+    owner_uuid: str = "550e8400-e29b-41d4-a716-446655440010"
+    now: datetime = datetime(2026, 3, 26, tzinfo=timezone.utc)
+
+    project: Project = _build_owner_project(
+        project_uuid=project_uuid, owner_uuid=owner_uuid
+    )
+    current_user: User = _build_user(user_uuid=owner_uuid, name="Owner")
+
+    clock: FakeClock = FakeClock(now=now)
+    project_queries: FakeProjectQueries = FakeProjectQueries(
+        project=project, exc=None
+    )
+    project_commands: FakeProjectCommands = FakeProjectCommands()
+    current_user_service: FakeCurrentUserService = FakeCurrentUserService(
+        user=current_user
+    )
+
+    project_service: ProjectService = ProjectService(id_generator=Mock())
+
+    usecase: SetProjectAccessUsecase = SetProjectAccessUsecase(
+        clock=clock,
+        project_service=project_service,
+        project_queries=project_queries,
+        project_commands=project_commands,
+        current_user=current_user_service,
+    )
+
+    request: SetProjectAccessRequest = SetProjectAccessRequest(
+        project_id=ProjectId(project_uuid),
+        is_private=True,
+    )
+
+    asyncio.run(usecase(request))
+
+    assert project_queries.received_project_id == request.project_id.value
+    assert current_user_service.called is True
+    assert len(project_commands.updated_projects) == 1
+    assert project_commands.updated_projects[0] is project
+    assert project.is_private is True
+
+
+def test_set_project_access_raises_when_current_user_is_not_owner() -> None:
+    # protection: запрещаем изменение privateness не-OWNER.
+
+    project_uuid: str = "550e8400-e29b-41d4-a716-446655440002"
+    owner_uuid: str = "550e8400-e29b-41d4-a716-446655440011"
+    not_owner_uuid: str = "550e8400-e29b-41d4-a716-446655440012"
+
+    project: Project = _build_owner_project(
+        project_uuid=project_uuid, owner_uuid=owner_uuid
+    )
+    current_user: User = _build_user(
+        user_uuid=not_owner_uuid, name="NotOwner"
+    )
+
+    clock: FakeClock = FakeClock(now=datetime.now(tz=timezone.utc))
+    project_queries: FakeProjectQueries = FakeProjectQueries(
+        project=project, exc=None
+    )
+    project_commands: FakeProjectCommands = FakeProjectCommands()
+    current_user_service: FakeCurrentUserService = FakeCurrentUserService(
+        user=current_user
+    )
+
+    project_service: ProjectService = ProjectService(id_generator=Mock())
+
+    usecase: SetProjectAccessUsecase = SetProjectAccessUsecase(
+        clock=clock,
+        project_service=project_service,
+        project_queries=project_queries,
+        project_commands=project_commands,
+        current_user=current_user_service,
+    )
+
+    request: SetProjectAccessRequest = SetProjectAccessRequest(
+        project_id=ProjectId(project_uuid),
+        is_private=True,
+    )
+
+    with pytest.raises(AccessDeniedError):
+        asyncio.run(usecase(request))
+
+    assert current_user_service.called is True
+    assert project_commands.updated_projects == []
+    assert project.is_private is False
+
+
+def test_set_project_access_propagates_project_not_found_error() -> None:
+    # fast feedback + protection: если проекта нет — не трогаем команды/текущего пользователя.
+
+    project_uuid: str = "550e8400-e29b-41d4-a716-446655440003"
+    owner_uuid: str = "550e8400-e29b-41d4-a716-446655440013"
+    now: datetime = datetime(2026, 3, 26, tzinfo=timezone.utc)
+
+    current_user: User = _build_user(user_uuid=owner_uuid, name="Owner")
+    clock: FakeClock = FakeClock(now=now)
+    project_queries: FakeProjectQueries = FakeProjectQueries(
+        project=None,
+        exc=ProjectNotFoundError("Project not found"),
+    )
+    project_commands: FakeProjectCommands = FakeProjectCommands()
+    current_user_service: FakeCurrentUserService = FakeCurrentUserService(
+        user=current_user
+    )
+
+    project_service: ProjectService = ProjectService(id_generator=Mock())
+
+    usecase: SetProjectAccessUsecase = SetProjectAccessUsecase(
+        clock=clock,
+        project_service=project_service,
+        project_queries=project_queries,
+        project_commands=project_commands,
+        current_user=current_user_service,
+    )
+
+    request: SetProjectAccessRequest = SetProjectAccessRequest(
+        project_id=ProjectId(project_uuid),
+        is_private=True,
+    )
+
+    with pytest.raises(ProjectNotFoundError):
+        asyncio.run(usecase(request))
+
+    assert project_queries.received_project_id == request.project_id.value
+    assert current_user_service.called is False
+    assert project_commands.updated_projects == []
+
+
+src/tests/test_usecases_directory_document_content.py
+
+# Тесты усиливают protection и refactor-resistance для сценариев списка содержимого каталога,
+# создания/удаления документов, создания каталога и выдачи content ticket.
+# target_file: src/tests/test_usecases_directory_document_content.py — юзкейсы list/create/delete document/directory и create content ticket.
+
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+import jwt
+
+from application.compositions import DeleteDirectoryComposition, DeleteDocumentComposition
+from application.exceptions import (
+    AccessDeniedError,
+    DirectoryNotFoundError,
+    DocumentNotFoundError,
+    ProjectGroupNotInProjectError,
+    UserNotInProjectGroupError,
+)
+from application.ports.gateways.query_params import ProjectUnitListParams
+from application.ports.gateways.query_params.common import OffsetPagination
+from application.usecases.create_content_ticket import (
+    CreateContentTicketRequest,
+    CreateContentTicketResponse,
+    CreateContentTicketUsecase,
+)
+from presentation.presenters.auth_info.jwt_content_ticket_presenter import (
+    JwtContentTicketPresenter,
+)
+from application.usecases.get_document_content import (
+    GetDocumentContentRequest,
+    GetDocumentContentUsecase,
+)
+from application.usecases.create_directory import (
+    CreateDirectoryRequest,
+    CreateDirectoryUsecase,
+)
+from application.usecases.create_document import CreateDocumentRequest, CreateDocumentUsecase
+from application.usecases.delete_directory import (
+    DeleteDirectoryRequest,
+    DeleteDirectoryResponse,
+    DeleteDirectoryUsecase,
+)
+from application.usecases.delete_document import (
+    DeleteDocumentRequest,
+    DeleteDocumentResponse,
+    DeleteDocumentUsecase,
+)
+from application.usecases.list_directory_content import (
+    ListDirectoryContentRequest,
+    ListDirectoryContentUsecase,
+)
+from domain.entities import (
+    DirectoryId,
+    DocumentId,
+    ProjectGroupId,
+    ProjectId,
+    UserId,
+)
+from domain.entities.access_list import ResolvedUnitPermissions
+from domain.entities.document import ContentId
+from domain.enums import ProjectUnitAction
+from domain.value_objects import FileName, HexColor, Name, Title
+
+
+def _project_unit_list_params() -> ProjectUnitListParams:
+    return ProjectUnitListParams(
+        filters=[],
+        pagination=OffsetPagination(offset=0, limit=20),
+        sorting=[],
+    )
+
+
+def test_list_directory_content_calls_visitor_when_execute_allowed() -> None:
+    async def scenario() -> None:
+        parent_uuid: str = "00000000-0000-4000-8000-000000000001"
+        project_uuid: str = "00000000-0000-4000-8000-000000000002"
+        directory_uuid: str = "00000000-0000-4000-8000-000000000003"
+        owner_uuid: str = "00000000-0000-4000-8000-000000000004"
+
+        # id/parent as str: use case wraps them in ProjectUnitId(...) (expects str, not VO)
+        found_directory = SimpleNamespace(
+            id_=directory_uuid,
+            parent=parent_uuid,
+        )
+        found_project = SimpleNamespace(id_=project_uuid, is_private=True)
+
+        directory_gateway = SimpleNamespace(
+            by_id=AsyncMock(return_value=found_directory),
+        )
+        project_queries = SimpleNamespace(
+            by_id=AsyncMock(return_value=found_project),
+        )
+        unit_stub = SimpleNamespace(created_by=UserId(owner_uuid))
+        project_unit_gateway = SimpleNamespace(
+            by_id=AsyncMock(),
+            by_directory=AsyncMock(return_value=[unit_stub]),
+        )
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.EXECUTE},
+                denied=set(),
+            )
+        )
+        owner_user = SimpleNamespace(id_=owner_uuid)
+        user_gateway = SimpleNamespace(
+            by_ids=AsyncMock(return_value=[owner_user]),
+        )
+        current_user = AsyncMock(return_value=SimpleNamespace(id_="u1"))
+
+        directory_service = SimpleNamespace(belongs_to=MagicMock(return_value=True))
+        use_case = ListDirectoryContentUsecase(
+            directory_service=directory_service,
+            directory_gateway=directory_gateway,
+            project_unit_gateway=project_unit_gateway,
+            project_queries=project_queries,
+            permissions=permission_service,
+            user_gateway=user_gateway,
+            current_user=current_user,
+        )
+        visitor = MagicMock()
+        request = ListDirectoryContentRequest(
+            project_id=ProjectId(project_uuid),
+            parent_id=DirectoryId(directory_uuid),
+        )
+
+        await use_case(visitor, request, _project_unit_list_params())
+
+        visitor.visit_sequence.assert_called_once()
+        call_args = visitor.visit_sequence.call_args
+        assert call_args[0][0] == [unit_stub]
+        owner_map = call_args[0][1]
+        assert UserId(owner_uuid) in owner_map
+        assert owner_map[UserId(owner_uuid)] is owner_user
+
+    asyncio.run(scenario())
+
+
+def test_list_directory_content_raises_when_execute_denied() -> None:
+    async def scenario() -> None:
+        parent_uuid: str = "00000000-0000-4000-8000-000000000011"
+        project_uuid: str = "00000000-0000-4000-8000-000000000012"
+        directory_uuid: str = "00000000-0000-4000-8000-000000000013"
+
+        # id/parent as str: use case wraps them in ProjectUnitId(...) (expects str, not VO)
+        found_directory = SimpleNamespace(
+            id_=directory_uuid,
+            parent=parent_uuid,
+        )
+        found_project = SimpleNamespace(id_=project_uuid, is_private=True)
+
+        directory_gateway = SimpleNamespace(
+            by_id=AsyncMock(return_value=found_directory),
+        )
+        project_queries = SimpleNamespace(
+            by_id=AsyncMock(return_value=found_project),
+        )
+        project_unit_gateway = SimpleNamespace(
+            by_directory=AsyncMock(),
+        )
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed=set(),
+                denied={ProjectUnitAction.EXECUTE},
+            )
+        )
+        user_gateway = SimpleNamespace(
+            by_ids=AsyncMock(),
+        )
+        current_user = AsyncMock(return_value=SimpleNamespace(id_="u1"))
+
+        directory_service = SimpleNamespace(belongs_to=MagicMock(return_value=True))
+        use_case = ListDirectoryContentUsecase(
+            directory_service=directory_service,
+            directory_gateway=directory_gateway,
+            project_unit_gateway=project_unit_gateway,
+            project_queries=project_queries,
+            permissions=permission_service,
+            user_gateway=user_gateway,
+            current_user=current_user,
+        )
+        visitor = MagicMock()
+        request = ListDirectoryContentRequest(
+            project_id=ProjectId(project_uuid),
+            parent_id=DirectoryId(directory_uuid),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await use_case(visitor, request, _project_unit_list_params())
+
+        visitor.visit_sequence.assert_not_called()
+
+    asyncio.run(scenario())
+
+
+def test_create_content_ticket_returns_response_when_read_allowed() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000021"
+        document_uuid: str = "00000000-0000-4000-8000-000000000022"
+        content_uuid: str = "00000000-0000-4000-8000-000000000023"
+        now: datetime = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+        current_user = SimpleNamespace(
+            id_="00000000-0000-4000-8000-000000000024", name="Alice"
+        )
+        found_document = SimpleNamespace(
+            id_=document_uuid,
+            content_ref=SimpleNamespace(value=content_uuid),
+        )
+        pinned_project = SimpleNamespace(id_=project_uuid)
+
+        context = SimpleNamespace(
+            current_user=current_user,
+            pinned_project=pinned_project,
+            found_document=found_document,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.READ},
+                denied=set(),
+            )
+        )
+        ticket_entity = SimpleNamespace(
+            id_=SimpleNamespace(value="00000000-0000-4000-8000-000000000025"),
+            username=Name("Alice"),
+            user_id=UserId("00000000-0000-4000-8000-000000000024"),
+            content_ref=found_document.content_ref,
+            permissions=[ProjectUnitAction.READ],
+            issued_at=SimpleNamespace(),
+            expire_at=SimpleNamespace(),
+        )
+        content_ticket_service = SimpleNamespace(
+            create_ticket=MagicMock(return_value=ticket_entity),
+        )
+        clock = SimpleNamespace(now=lambda: now)
+
+        use_case = CreateContentTicketUsecase(
+            clock=clock,
+            context_service=context_service,
+            permission_service=permission_service,
+            content_ticket_service=content_ticket_service,
+            group_queries=SimpleNamespace(by_id=AsyncMock()),
+        )
+        request = CreateContentTicketRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+        )
+
+        result: CreateContentTicketResponse = await use_case(request)
+
+        assert result["ticket_id"] is ticket_entity.id_
+        assert result["user_id"] == UserId("00000000-0000-4000-8000-000000000024")
+        content_ticket_service.create_ticket.assert_called_once()
+
+    asyncio.run(scenario())
+
+
+def test_create_content_ticket_raises_when_read_denied() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000031"
+        document_uuid: str = "00000000-0000-4000-8000-000000000032"
+
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_="u1", name="Bob"),
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=SimpleNamespace(value="c1"),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed=set(),
+                denied={ProjectUnitAction.READ},
+            )
+        )
+        content_ticket_service = SimpleNamespace(
+            create_ticket=MagicMock(),
+        )
+        clock = SimpleNamespace(now=lambda: datetime.now(timezone.utc))
+
+        use_case = CreateContentTicketUsecase(
+            clock=clock,
+            context_service=context_service,
+            permission_service=permission_service,
+            content_ticket_service=content_ticket_service,
+            group_queries=SimpleNamespace(by_id=AsyncMock()),
+        )
+        request = CreateContentTicketRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await use_case(request)
+
+        content_ticket_service.create_ticket.assert_not_called()
+
+    asyncio.run(scenario())
+
+
+def test_create_content_ticket_includes_team_when_team_id_is_provided() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000411"
+        document_uuid: str = "00000000-0000-4000-8000-000000000412"
+        group_uuid: str = "00000000-0000-4000-8000-000000000413"
+        now: datetime = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+        current_user_id = UserId("00000000-0000-4000-8000-000000000414")
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_=current_user_id, name=Name("Alice")),
+            pinned_project=SimpleNamespace(id_=ProjectId(project_uuid)),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=SimpleNamespace(value="00000000-0000-4000-8000-000000000415"),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.READ},
+                denied=set(),
+            )
+        )
+        ticket_entity = SimpleNamespace(
+            id_=SimpleNamespace(value="00000000-0000-4000-8000-000000000416"),
+            username=Name("Alice"),
+            user_id=current_user_id,
+            content_ref=context.found_document.content_ref,
+            permissions=[ProjectUnitAction.READ],
+            issued_at=SimpleNamespace(),
+            expire_at=SimpleNamespace(),
+        )
+        content_ticket_service = SimpleNamespace(
+            create_ticket=MagicMock(return_value=ticket_entity),
+        )
+        group = SimpleNamespace(
+            id_=ProjectGroupId(group_uuid),
+            project_id=ProjectId(project_uuid),
+            name=Title("TeamBlue"),
+            color=HexColor("#112233"),
+            participants=[current_user_id],
+        )
+        group_queries = SimpleNamespace(by_id=AsyncMock(return_value=group))
+        clock = SimpleNamespace(now=lambda: now)
+
+        use_case = CreateContentTicketUsecase(
+            clock=clock,
+            context_service=context_service,
+            permission_service=permission_service,
+            content_ticket_service=content_ticket_service,
+            group_queries=group_queries,
+        )
+        request = CreateContentTicketRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+            team_id=ProjectGroupId(group_uuid),
+        )
+
+        result: CreateContentTicketResponse = await use_case(request)
+
+        assert result["team_id"] == group.id_
+        assert result["team_name"] == group.name
+        assert result["team_color"] == group.color
+        group_queries.by_id.assert_awaited_once_with(ProjectGroupId(group_uuid))
+
+    asyncio.run(scenario())
+
+
+def test_create_content_ticket_raises_when_group_not_in_project() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000421"
+        other_project_uuid: str = "00000000-0000-4000-8000-000000000422"
+        document_uuid: str = "00000000-0000-4000-8000-000000000423"
+        group_uuid: str = "00000000-0000-4000-8000-000000000424"
+
+        current_user_id = UserId("00000000-0000-4000-8000-000000000425")
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_=current_user_id, name=Name("Alice")),
+            pinned_project=SimpleNamespace(id_=ProjectId(project_uuid)),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=SimpleNamespace(value="content-1"),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.READ},
+                denied=set(),
+            )
+        )
+        group = SimpleNamespace(
+            id_=ProjectGroupId(group_uuid),
+            project_id=ProjectId(other_project_uuid),
+            participants=[current_user_id],
+        )
+        group_queries = SimpleNamespace(by_id=AsyncMock(return_value=group))
+
+        use_case = CreateContentTicketUsecase(
+            clock=SimpleNamespace(now=lambda: datetime.now(timezone.utc)),
+            context_service=context_service,
+            permission_service=permission_service,
+            content_ticket_service=SimpleNamespace(create_ticket=MagicMock()),
+            group_queries=group_queries,
+        )
+        request = CreateContentTicketRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+            team_id=ProjectGroupId(group_uuid),
+        )
+
+        with pytest.raises(ProjectGroupNotInProjectError):
+            await use_case(request)
+
+    asyncio.run(scenario())
+
+
+def test_create_content_ticket_raises_when_user_not_in_group() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000431"
+        document_uuid: str = "00000000-0000-4000-8000-000000000432"
+        group_uuid: str = "00000000-0000-4000-8000-000000000433"
+
+        current_user_id = UserId("00000000-0000-4000-8000-000000000434")
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_=current_user_id, name=Name("Alice")),
+            pinned_project=SimpleNamespace(id_=ProjectId(project_uuid)),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=SimpleNamespace(value="content-2"),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.READ},
+                denied=set(),
+            )
+        )
+        group = SimpleNamespace(
+            id_=ProjectGroupId(group_uuid),
+            project_id=ProjectId(project_uuid),
+            participants=[UserId("00000000-0000-4000-8000-000000000435")],
+        )
+        group_queries = SimpleNamespace(by_id=AsyncMock(return_value=group))
+        ticket_service = SimpleNamespace(create_ticket=MagicMock())
+
+        use_case = CreateContentTicketUsecase(
+            clock=SimpleNamespace(now=lambda: datetime.now(timezone.utc)),
+            context_service=context_service,
+            permission_service=permission_service,
+            content_ticket_service=ticket_service,
+            group_queries=group_queries,
+        )
+        request = CreateContentTicketRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+            team_id=ProjectGroupId(group_uuid),
+        )
+
+        with pytest.raises(UserNotInProjectGroupError):
+            await use_case(request)
+        ticket_service.create_ticket.assert_not_called()
+
+    asyncio.run(scenario())
+
+
+def test_jwt_content_ticket_presenter_keeps_base_payload_without_team() -> None:
+    presenter = JwtContentTicketPresenter(algorithm="HS256", private_key="secret")
+    now = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    exp = datetime(2099, 1, 2, tzinfo=timezone.utc)
+    response: CreateContentTicketResponse = {
+        "ticket_id": SimpleNamespace(value="ticket-1"),
+        "username": Name("Alice"),
+        "user_id": UserId("00000000-0000-4000-8000-000000000501"),
+        "project_id": "00000000-0000-4000-8000-000000000502",
+        "content_ref": ContentId("00000000-0000-4000-8000-000000000503"),
+        "permissions": [ProjectUnitAction.READ],
+        "issued_at": now,
+        "expire_at": exp,
+    }
+
+    token = presenter.present(response)
+    payload = jwt.decode(
+        token,
+        key="secret",
+        algorithms=["HS256"],
+        options={"verify_exp": False, "verify_iat": False},
+    )
+
+    assert payload["jti"] == "ticket-1"
+    assert payload["usr"] == "Alice"
+    assert payload["sub"] == "00000000-0000-4000-8000-000000000501"
+    assert payload["grp"] == "00000000-0000-4000-8000-000000000502"
+    assert payload["perms"] == [ProjectUnitAction.READ.value]
+    assert "tid" not in payload
+    assert "tnm" not in payload
+    assert "tcl" not in payload
+
+
+def test_jwt_content_ticket_presenter_appends_team_claims_when_present() -> None:
+    presenter = JwtContentTicketPresenter(algorithm="HS256", private_key="secret")
+    now = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    exp = datetime(2099, 1, 2, tzinfo=timezone.utc)
+    response: CreateContentTicketResponse = {
+        "ticket_id": SimpleNamespace(value="ticket-2"),
+        "username": Name("Alice"),
+        "user_id": UserId("00000000-0000-4000-8000-000000000511"),
+        "project_id": "00000000-0000-4000-8000-000000000512",
+        "content_ref": ContentId("00000000-0000-4000-8000-000000000513"),
+        "permissions": [ProjectUnitAction.READ],
+        "issued_at": now,
+        "expire_at": exp,
+        "team_id": ProjectGroupId("00000000-0000-4000-8000-000000000514"),
+        "team_name": Title("BlueTeam"),
+        "team_color": HexColor("#123abc"),
+    }
+
+    token = presenter.present(response)
+    payload = jwt.decode(
+        token,
+        key="secret",
+        algorithms=["HS256"],
+        options={"verify_exp": False, "verify_iat": False},
+    )
+
+    assert payload["tid"] == "00000000-0000-4000-8000-000000000514"
+    assert payload["tnm"] == "BlueTeam"
+    assert payload["tcl"] == "#123abc"
+
+
+def test_get_document_content_returns_bytes_for_public_project_without_user() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000033"
+        document_uuid: str = "00000000-0000-4000-8000-000000000034"
+        content_uuid: str = "00000000-0000-4000-8000-000000000035"
+        content_bytes: bytes = b'{"ops":[]}'
+
+        context = SimpleNamespace(
+            current_user=None,
+            pinned_project=SimpleNamespace(is_private=False),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=ContentId(content_uuid),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock()
+        content_queries = SimpleNamespace(
+            by_location=AsyncMock(return_value=content_bytes),
+        )
+
+        use_case = GetDocumentContentUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            content_queries=content_queries,
+        )
+        request = GetDocumentContentRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+        )
+
+        result: bytes = await use_case(request)
+
+        assert result == content_bytes
+        permission_service.assert_not_called()
+        content_queries.by_location.assert_awaited_once_with(
+            ProjectId(project_uuid), ContentId(content_uuid)
+        )
+
+    asyncio.run(scenario())
+
+
+def test_get_document_content_raises_when_private_project_has_no_user() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000036"
+        document_uuid: str = "00000000-0000-4000-8000-000000000037"
+        content_uuid: str = "00000000-0000-4000-8000-000000000038"
+
+        context = SimpleNamespace(
+            current_user=None,
+            pinned_project=SimpleNamespace(is_private=True),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=ContentId(content_uuid),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock()
+        content_queries = SimpleNamespace(
+            by_location=AsyncMock(),
+        )
+
+        use_case = GetDocumentContentUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            content_queries=content_queries,
+        )
+        request = GetDocumentContentRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await use_case(request)
+
+        permission_service.assert_not_called()
+        content_queries.by_location.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_get_document_content_returns_bytes_when_private_read_allowed() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000039"
+        document_uuid: str = "00000000-0000-4000-8000-000000000040"
+        content_uuid: str = "00000000-0000-4000-8000-000000000041"
+        content_bytes: bytes = b"monaco-content"
+
+        current_user = SimpleNamespace(id_="00000000-0000-4000-8000-000000000042")
+        pinned_project = SimpleNamespace(is_private=True)
+        found_document = SimpleNamespace(
+            id_=document_uuid,
+            content_ref=ContentId(content_uuid),
+        )
+        context = SimpleNamespace(
+            current_user=current_user,
+            pinned_project=pinned_project,
+            found_document=found_document,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.READ},
+                denied=set(),
+            )
+        )
+        content_queries = SimpleNamespace(
+            by_location=AsyncMock(return_value=content_bytes),
+        )
+
+        use_case = GetDocumentContentUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            content_queries=content_queries,
+        )
+        request = GetDocumentContentRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+        )
+
+        result: bytes = await use_case(request)
+
+        assert result == content_bytes
+        permission_service.assert_awaited_once()
+        content_queries.by_location.assert_awaited_once_with(
+            ProjectId(project_uuid), found_document.content_ref
+        )
+
+    asyncio.run(scenario())
+
+
+def test_create_directory_returns_response_when_write_allowed() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000041"
+        parent_uuid: str = "00000000-0000-4000-8000-000000000042"
+        grandparent_uuid: str = "00000000-0000-4000-8000-000000000043"
+        now: datetime = datetime(2025, 2, 1, 10, 0, 0, tzinfo=timezone.utc)
+
+        parent_directory = SimpleNamespace(
+            id_=parent_uuid,
+            project=SimpleNamespace(value=project_uuid),
+            parent=DirectoryId(grandparent_uuid),
+        )
+        current_user = SimpleNamespace(id_="00000000-0000-4000-8000-000000000044")
+        context = SimpleNamespace(
+            current_user=current_user,
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_directory=parent_directory,
+            parent_directory=parent_directory,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.WRITE},
+                denied=set(),
+            )
+        )
+        new_directory_id = DirectoryId("00000000-0000-4000-8000-000000000045")
+        new_directory = SimpleNamespace(id_=new_directory_id)
+        directory_service = SimpleNamespace(
+            create_directory=MagicMock(return_value=new_directory),
+        )
+        directory_commands = SimpleNamespace(
+            add=AsyncMock(),
+        )
+        clock = SimpleNamespace(now=lambda: now)
+
+        use_case = CreateDirectoryUsecase(
+            clock=clock,
+            context_service=context_service,
+            permission_service=permission_service,
+            directory_service=directory_service,
+            directory_commands=directory_commands,
+        )
+        request = CreateDirectoryRequest(
+            project_id=ProjectId(project_uuid),
+            parent_id=DirectoryId(parent_uuid),
+            name=FileName("child"),
+        )
+
+        result = await use_case(request)
+
+        assert result["directory"] is new_directory_id
+        assert result["created_by"] == current_user.id_
+        directory_commands.add.assert_awaited_once_with(new_directory)
+
+    asyncio.run(scenario())
+
+
+def test_create_directory_raises_when_write_denied() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000051"
+        parent_uuid: str = "00000000-0000-4000-8000-000000000052"
+        grandparent_uuid: str = "00000000-0000-4000-8000-000000000053"
+
+        parent_directory = SimpleNamespace(
+            id_=parent_uuid,
+            project=SimpleNamespace(value=project_uuid),
+            parent=DirectoryId(grandparent_uuid),
+        )
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_="u1"),
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_directory=parent_directory,
+            parent_directory=parent_directory,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed=set(),
+                denied={ProjectUnitAction.WRITE},
+            )
+        )
+        directory_service = SimpleNamespace(
+            create_directory=MagicMock(),
+        )
+        directory_commands = SimpleNamespace(
+            add=AsyncMock(),
+        )
+        clock = SimpleNamespace(now=lambda: datetime.now(timezone.utc))
+
+        use_case = CreateDirectoryUsecase(
+            clock=clock,
+            context_service=context_service,
+            permission_service=permission_service,
+            directory_service=directory_service,
+            directory_commands=directory_commands,
+        )
+        request = CreateDirectoryRequest(
+            project_id=ProjectId(project_uuid),
+            parent_id=DirectoryId(parent_uuid),
+            name=FileName("blocked"),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await use_case(request)
+
+        directory_commands.add.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_create_document_returns_response_when_write_allowed() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000061"
+        parent_uuid: str = "00000000-0000-4000-8000-000000000062"
+        grandparent_uuid: str = "00000000-0000-4000-8000-000000000063"
+        content_uuid: str = "00000000-0000-4000-8000-000000000064"
+        now: datetime = datetime(2025, 3, 1, 9, 30, 0, tzinfo=timezone.utc)
+
+        parent_directory = SimpleNamespace(
+            id_=parent_uuid,
+            project=SimpleNamespace(value=project_uuid),
+            parent=DirectoryId(grandparent_uuid),
+        )
+        current_user = SimpleNamespace(id_="00000000-0000-4000-8000-000000000065")
+        context = SimpleNamespace(
+            current_user=current_user,
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_directory=parent_directory,
+            parent_directory=parent_directory,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.WRITE},
+                denied=set(),
+            )
+        )
+        new_doc_id = DocumentId("00000000-0000-4000-8000-000000000066")
+        content_ref = SimpleNamespace(value=content_uuid)
+        new_document = SimpleNamespace(id_=new_doc_id, content_ref=content_ref)
+        document_service = SimpleNamespace(
+            create_document=MagicMock(return_value=new_document),
+        )
+        document_commands = SimpleNamespace(
+            add=AsyncMock(),
+        )
+        clock = SimpleNamespace(now=lambda: now)
+
+        use_case = CreateDocumentUsecase(
+            clock=clock,
+            context_service=context_service,
+            permission_service=permission_service,
+            document_service=document_service,
+            document_commands=document_commands,
+        )
+        request = CreateDocumentRequest(
+            project_id=ProjectId(project_uuid),
+            parent_id=DirectoryId(parent_uuid),
+            name=FileName("notes.txt"),
+        )
+
+        result = await use_case(request)
+
+        assert result["document"] is new_doc_id
+        assert result["content_ref"] is content_ref
+        document_commands.add.assert_awaited_once_with(new_document)
+
+    asyncio.run(scenario())
+
+
+def test_create_document_raises_when_write_denied() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000071"
+        parent_uuid: str = "00000000-0000-4000-8000-000000000072"
+        grandparent_uuid: str = "00000000-0000-4000-8000-000000000073"
+
+        parent_directory = SimpleNamespace(
+            id_=parent_uuid,
+            project=SimpleNamespace(value=project_uuid),
+            parent=DirectoryId(grandparent_uuid),
+        )
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_="u1"),
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_directory=parent_directory,
+            parent_directory=parent_directory,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed=set(),
+                denied={ProjectUnitAction.WRITE},
+            )
+        )
+        document_service = SimpleNamespace(
+            create_document=MagicMock(),
+        )
+        document_commands = SimpleNamespace(
+            add=AsyncMock(),
+        )
+        clock = SimpleNamespace(now=lambda: datetime.now(timezone.utc))
+
+        use_case = CreateDocumentUsecase(
+            clock=clock,
+            context_service=context_service,
+            permission_service=permission_service,
+            document_service=document_service,
+            document_commands=document_commands,
+        )
+        request = CreateDocumentRequest(
+            project_id=ProjectId(project_uuid),
+            parent_id=DirectoryId(parent_uuid),
+            name=FileName("blocked.txt"),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await use_case(request)
+
+        document_commands.add.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_delete_document_returns_message_when_document_not_found() -> None:
+    async def scenario() -> None:
+        context_service = AsyncMock(side_effect=DocumentNotFoundError())
+        permission_service = AsyncMock()
+        document_commands = SimpleNamespace(
+            delete=AsyncMock(),
+        )
+
+        use_case = DeleteDocumentUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            document_commands=document_commands,
+        )
+        request = DeleteDocumentRequest(
+            project_id=ProjectId("00000000-0000-4000-8000-000000000081"),
+            document_id=DocumentId("00000000-0000-4000-8000-000000000082"),
+        )
+
+        response: DeleteDocumentResponse = await use_case(request)
+
+        assert response.deleted is False
+        assert response.content_ids == ()
+        assert response.message == "Document is already deleted or never been in system"
+        document_commands.delete.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_delete_document_deletes_when_write_allowed() -> None:
+    async def scenario() -> None:
+        parent_uuid: str = "00000000-0000-4000-8000-000000000091"
+        document_uuid: str = "00000000-0000-4000-8000-000000000092"
+        project_uuid: str = "00000000-0000-4000-8000-000000000093"
+        content_uuid: str = "00000000-0000-4000-8000-000000000094"
+
+        found_document = SimpleNamespace(
+            id_=DocumentId(document_uuid),
+            parent=DirectoryId(parent_uuid),
+            content_ref=ContentId(content_uuid),
+        )
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_="u1"),
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_document=found_document,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.WRITE},
+                denied=set(),
+            )
+        )
+        document_commands = SimpleNamespace(
+            delete=AsyncMock(),
+        )
+
+        use_case = DeleteDocumentUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            document_commands=document_commands,
+        )
+        request = DeleteDocumentRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+        )
+
+        response: DeleteDocumentResponse = await use_case(request)
+
+        assert response.deleted is True
+        assert response.content_ids == (ContentId(content_uuid),)
+        assert response.message == "Document deleted"
+        document_commands.delete.assert_awaited_once_with(found_document.id_)
+
+    asyncio.run(scenario())
+
+
+def test_delete_document_raises_when_write_denied() -> None:
+    async def scenario() -> None:
+        parent_uuid: str = "00000000-0000-4000-8000-000000000101"
+        document_uuid: str = "00000000-0000-4000-8000-000000000102"
+        project_uuid: str = "00000000-0000-4000-8000-000000000103"
+
+        found_document = SimpleNamespace(
+            id_=DocumentId(document_uuid),
+            parent=DirectoryId(parent_uuid),
+        )
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_="u1"),
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_document=found_document,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed=set(),
+                denied={ProjectUnitAction.WRITE},
+            )
+        )
+        document_commands = SimpleNamespace(
+            delete=AsyncMock(),
+        )
+
+        use_case = DeleteDocumentUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            document_commands=document_commands,
+        )
+        request = DeleteDocumentRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await use_case(request)
+
+        document_commands.delete.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_delete_directory_returns_message_when_directory_not_found() -> None:
+    async def scenario() -> None:
+        context_service = AsyncMock(side_effect=DirectoryNotFoundError())
+        permission_service = AsyncMock()
+        directory_commands = SimpleNamespace(delete=AsyncMock())
+        directory_service = SimpleNamespace(is_root=MagicMock())
+
+        use_case = DeleteDirectoryUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            directory_commands=directory_commands,
+            directory_service=directory_service,
+        )
+        request = DeleteDirectoryRequest(
+            project_id=ProjectId("00000000-0000-4000-8000-000000000111"),
+            directory_id=DirectoryId("00000000-0000-4000-8000-000000000112"),
+        )
+
+        response: DeleteDirectoryResponse = await use_case(request)
+        assert response.deleted is False
+        assert response.content_ids == ()
+        assert response.message == "Directory is already deleted or never been in system"
+        directory_commands.delete.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_delete_directory_returns_deleted_content_ids() -> None:
+    async def scenario() -> None:
+        parent_uuid: str = "00000000-0000-4000-8000-000000000131"
+        directory_uuid: str = "00000000-0000-4000-8000-000000000132"
+        project_uuid: str = "00000000-0000-4000-8000-000000000133"
+        first_content_uuid: str = "00000000-0000-4000-8000-000000000134"
+        second_content_uuid: str = "00000000-0000-4000-8000-000000000135"
+
+        found_directory = SimpleNamespace(
+            id_=DirectoryId(directory_uuid),
+            parent=DirectoryId(parent_uuid),
+        )
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_="u1"),
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_directory=found_directory,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.WRITE},
+                denied=set(),
+            )
+        )
+        directory_commands = SimpleNamespace(
+            delete=AsyncMock(
+                return_value=[
+                    ContentId(first_content_uuid),
+                    ContentId(second_content_uuid),
+                ]
+            )
+        )
+        directory_service = SimpleNamespace(is_root=MagicMock(return_value=False))
+
+        use_case = DeleteDirectoryUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            directory_commands=directory_commands,
+            directory_service=directory_service,
+        )
+        request = DeleteDirectoryRequest(
+            project_id=ProjectId(project_uuid),
+            directory_id=DirectoryId(directory_uuid),
+        )
+
+        response: DeleteDirectoryResponse = await use_case(request)
+
+        assert response.deleted is True
+        assert response.content_ids == (
+            ContentId(first_content_uuid),
+            ContentId(second_content_uuid),
+        )
+        assert response.message == "Directory deleted"
+        directory_commands.delete.assert_awaited_once_with(found_directory.id_)
+
+    asyncio.run(scenario())
+
+
+def test_delete_directory_raises_when_write_denied() -> None:
+    async def scenario() -> None:
+        parent_uuid: str = "00000000-0000-4000-8000-000000000121"
+        directory_uuid: str = "00000000-0000-4000-8000-000000000122"
+        project_uuid: str = "00000000-0000-4000-8000-000000000123"
+
+        found_directory = SimpleNamespace(id_=directory_uuid, parent=DirectoryId(parent_uuid))
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_="u1"),
+            pinned_project=SimpleNamespace(id_=project_uuid),
+            found_directory=found_directory,
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed=set(),
+                denied={ProjectUnitAction.WRITE},
+            )
+        )
+        directory_commands = SimpleNamespace(delete=AsyncMock())
+        directory_service = SimpleNamespace(is_root=MagicMock(return_value=False))
+
+        use_case = DeleteDirectoryUsecase(
+            context_service=context_service,
+            permission_service=permission_service,
+            directory_commands=directory_commands,
+            directory_service=directory_service,
+        )
+        request = DeleteDirectoryRequest(
+            project_id=ProjectId(project_uuid),
+            directory_id=DirectoryId(directory_uuid),
+        )
+
+        with pytest.raises(AccessDeniedError):
+            await use_case(request)
+        directory_commands.delete.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+
+def test_delete_document_composition_adds_task_for_deleted_content() -> None:
+    async def scenario() -> None:
+        now: datetime = datetime(2026, 3, 29, tzinfo=timezone.utc)
+        project_uuid: str = "00000000-0000-4000-8000-000000000141"
+        document_uuid: str = "00000000-0000-4000-8000-000000000142"
+        content_uuid: str = "00000000-0000-4000-8000-000000000143"
+
+        created_task = SimpleNamespace(name="task")
+        clock = SimpleNamespace(now=MagicMock(return_value=now))
+        use_case = AsyncMock(
+            return_value=DeleteDocumentResponse(
+                project_id=ProjectId(project_uuid),
+                content_ids=(ContentId(content_uuid),),
+                deleted=True,
+                message="Document deleted",
+            )
+        )
+        unit_of_work = AsyncMock()
+        unit_of_work.__aenter__.return_value = None
+        unit_of_work.__aexit__.return_value = None
+        task_service = SimpleNamespace(create_task=MagicMock(return_value=created_task))
+        task_gateway = SimpleNamespace(add=AsyncMock())
+        composition = DeleteDocumentComposition(
+            clock=clock,
+            usecase=use_case,
+            unit_of_work=unit_of_work,
+            task_service=task_service,
+            task_gateway=task_gateway,
+        )
+        request = DeleteDocumentRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+        )
+
+        await composition(request)
+
+        task_service.create_task.assert_called_once_with(
+            "documents.deleted",
+            {
+                "content_ids": [content_uuid],
+                "group": project_uuid,
+            },
+            now=now,
+        )
+        task_gateway.add.assert_awaited_once_with(created_task)
+
+    asyncio.run(scenario())
+
+
+def test_delete_directory_composition_skips_task_when_nothing_deleted() -> None:
+    async def scenario() -> None:
+        now: datetime = datetime(2026, 3, 29, tzinfo=timezone.utc)
+        project_uuid: str = "00000000-0000-4000-8000-000000000151"
+        directory_uuid: str = "00000000-0000-4000-8000-000000000152"
+
+        clock = SimpleNamespace(now=MagicMock(return_value=now))
+        use_case = AsyncMock(
+            return_value=DeleteDirectoryResponse(
+                project_id=ProjectId(project_uuid),
+                content_ids=(),
+                deleted=False,
+                message="Directory is already deleted or never been in system",
+            )
+        )
+        unit_of_work = AsyncMock()
+        unit_of_work.__aenter__.return_value = None
+        unit_of_work.__aexit__.return_value = None
+        task_service = SimpleNamespace(create_task=MagicMock())
+        task_gateway = SimpleNamespace(add=AsyncMock())
+        composition = DeleteDirectoryComposition(
+            clock=clock,
+            usecase=use_case,
+            unit_of_work=unit_of_work,
+            task_service=task_service,
+            task_gateway=task_gateway,
+        )
+        request = DeleteDirectoryRequest(
+            project_id=ProjectId(project_uuid),
+            directory_id=DirectoryId(directory_uuid),
+        )
+
+        await composition(request)
+
+        task_service.create_task.assert_not_called()
+        task_gateway.add.assert_not_awaited()
+
+    asyncio.run(scenario())
+
+src/tests/test_user_service.py
+
+import pytest
+from datetime import date
+from unittest.mock import Mock, patch
+from dateutil.relativedelta import relativedelta
+
+# Импорты из вашего кода (пути могут отличаться)
+from domain.services import UserService
+from domain.entities import User, Project
+from domain.value_objects import Name, BirthDate, Id
+from domain.ports import UserIdGenerator
+
+
+class TestUserService:
+
+    @pytest.fixture
+    def mock_birthdate_policy(self):
+        policy = Mock()
+        policy.low_border = date(1900, 1, 1)
+        policy.age_border = relativedelta(years=18)
+        return policy
+
+    @pytest.fixture
+    def mock_id_generator(self):
+        generator = Mock(spec=UserIdGenerator)
+        generator.return_value = Id("user-123")
+        return generator
+
+    @pytest.fixture
+    def user_service(self, mock_birthdate_policy, mock_id_generator):
+        return UserService(mock_birthdate_policy, mock_id_generator)
+
+    @pytest.fixture
+    def sample_project(self):
+        return Mock(spec=Project)
+
+    def test_create_user_success(self, user_service, sample_project):
+        # Arrange
+        now = date(2023, 5, 15)
+        name = Name("John Doe")
+        bio = "Software Developer"
+        birthdate = date(1990, 1, 1)
+        projects = [sample_project]
+
+        # Act
+        user: User = user_service.create_user(now, name, bio, birthdate, projects)
+
+        # Assert
+        assert user.id_ == "user-123"
+        assert user.name == name.value
+        assert user.bio == bio
+        assert user.projects == projects
+        assert user.birthdate == birthdate
+
+        # Проверяем вызовы зависимостей
+        user_service._id_generator.assert_called_once()
+
+    def test_create_user_with_minimum_age(self, user_service, sample_project):
+        # Arrange
+        now = date(2023, 5, 15)
+        name = Name("Young User")
+        bio = "Test bio"
+        # Пользователю ровно 18 лет
+        birthdate = date(2005, 5, 15)
+        projects = [sample_project]
+
+        # Act
+        user = user_service.create_user(now, name, bio, birthdate, projects)
+
+        # Assert
+        assert user.id_ == "user-123"
+        assert user.name == name.value
+        assert isinstance(getattr(user, "__object_birthdate", None), BirthDate)
+
+    def test_create_user_with_empty_projects(self, user_service):
+        # Arrange
+        now = date(2023, 5, 15)
+        name = Name("User Without Projects")
+        bio = "No projects"
+        birthdate = date(1985, 3, 10)
+        projects = []
+
+        # Act
+        user = user_service.create_user(now, name, bio, birthdate, projects)
+
+        # Assert
+        assert user.id_ == "user-123"
+        assert user.projects == []
+
+    def test_create_user_id_generator_called(self, user_service, sample_project):
+        # Arrange
+        now = date(2023, 5, 15)
+        name = Name("Test User")
+        bio = "Test bio"
+        birthdate = date(1995, 8, 20)
+        projects = [sample_project]
+
+        # Act
+        user_service.create_user(now, name, bio, birthdate, projects)
+
+        # Assert
+        user_service._id_generator.assert_called_once()
+
+    def test_birthdate_policy_used_correctly(
+        self, mock_birthdate_policy, mock_id_generator, sample_project
+    ):
+        # Arrange
+        user_service = UserService(mock_birthdate_policy, mock_id_generator)
+        now = date(2023, 5, 15)
+        name = Name("Test User")
+        bio = "Test bio"
+        birthdate = date(1990, 1, 1)
+        projects = [sample_project]
+
+        # Mock для BirthDate чтобы проверить параметры
+        with patch("domain.services.user.BirthDate") as mock_birthdate_class:
+            mock_birthdate_instance = Mock()
+            mock_birthdate_class.return_value = mock_birthdate_instance
+
+            # Act
+            user = user_service.create_user(now, name, bio, birthdate, projects)
+
+            # Assert
+            mock_birthdate_class.assert_called_once_with(
+                birthdate,
+                mock_birthdate_policy.low_border,
+                now,
+                mock_birthdate_policy.age_border,
+            )
+
+    def test_create_user_with_different_id_generator(self, mock_birthdate_policy):
+        # Arrange
+        custom_id_generator = Mock(return_value=Id("custom-user-id"))
+        user_service = UserService(mock_birthdate_policy, custom_id_generator)
+
+        now = date(2023, 5, 15)
+        name = Name("Custom ID User")
+        bio = "Test bio"
+        birthdate = date(1980, 12, 5)
+        projects = []
+
+        # Act
+        user = user_service.create_user(now, name, bio, birthdate, projects)
+
+        # Assert
+        assert user.id_ == "custom-user-id"
+        custom_id_generator.assert_called_once()
+
+
+class TestUserServiceEdgeCases:
+
+    @pytest.fixture
+    def user_service(self):
+        policy = Mock()
+        policy.low_border = date(1900, 1, 1)
+        policy.age_border = relativedelta(years=18)
+        id_generator = Mock(return_value="test-id")
+        return UserService(policy, id_generator)
+
+    def test_create_user_with_special_characters_in_bio(self, user_service):
+        # Arrange
+        now = date(2023, 5, 15)
+        name = Name("Special User")
+        bio = "Bio with émojis 🚀 and #hashtags"
+        birthdate = date(1995, 7, 20)
+        projects = []
+
+        # Act
+        user = user_service.create_user(now, name, bio, birthdate, projects)
+
+        # Assert
+        assert user.bio == bio
+
+    def test_create_user_with_long_name(self, user_service):
+        # Arrange
+        now = date(2023, 5, 15)
+        long_name = "A" * 100  # Длинное имя
+        name = Name(long_name)
+        bio = "Test bio"
+        birthdate = date(1992, 3, 15)
+        projects = []
+
+        # Act
+        user = user_service.create_user(now, name, bio, birthdate, projects)
+
+        # Assert
+        assert user.name == long_name
+
+    def test_create_user_on_leap_day(self, user_service):
+        # Arrange
+        now = date(2023, 2, 28)  # Не високосный год
+        name = Name("Leap Day User")
+        bio = "Born on leap day"
+        birthdate = date(2000, 2, 29)  # Високосный год
+        projects = []
+
+        # Act & Assert - проверяем что не возникает исключений
+        user = user_service.create_user(now, name, bio, birthdate, projects)
+        assert user is not None

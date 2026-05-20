@@ -60,14 +60,16 @@ class JoinProjectGroupUsecase:
                 "Only project members can be added to project group"
             )
 
-        authorize(
-            CanAddGroupParticipant(),
-            context=ProjectGroupParticipantManagmentContext(
-                subject=context.current_user,
-                project=context.pinned_project,
-                target=participant,
-            ),
-        )
+        is_self_join = current_user_id == request.participant_id
+        if not (context.found_group.is_public and is_self_join):
+            authorize(
+                CanAddGroupParticipant(),
+                context=ProjectGroupParticipantManagmentContext(
+                    subject=context.current_user,
+                    project=context.pinned_project,
+                    target=participant,
+                ),
+            )
 
         updated_group = self._group_service.join(
             context.found_group,

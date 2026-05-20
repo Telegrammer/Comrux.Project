@@ -13,6 +13,7 @@ from .services import (
     DocumentService,
     DirectoryService,
     ProjectGroupService,
+    ProjectTaskDomainService,
 )
 from .entities import (
     Entity,
@@ -20,6 +21,8 @@ from .entities import (
     ProjectId,
     ProjectGroup,
     ProjectGroupId,
+    ProjectTask,
+    ProjectTaskId,
     User,
     UserId,
     ProjectUnit,

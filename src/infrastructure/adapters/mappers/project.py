@@ -1,7 +1,6 @@
 __all__ = ["SqlAlchemyProjectMapper"]
 
 
-from dataclasses import dataclass
 from domain.enums import ProjectRole
 from domain.value_objects import Title, PassedDatetime
 from domain import Project, ProjectId, UserId, DirectoryId

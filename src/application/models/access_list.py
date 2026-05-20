@@ -12,5 +12,5 @@ class ProjectAccessListsRead:
 
     access_lists: Sequence[AccessList]
     owners: Sequence[Name | None]
-    user_targets: dict[UserId, Name]
-    group_targets: dict[ProjectGroupId, Name]
+    user_responsibles: dict[UserId, Name]
+    group_responsibles: dict[ProjectGroupId, Name]

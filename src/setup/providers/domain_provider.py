@@ -13,13 +13,14 @@ from domain import (
     DirectoryService,
     DocumentService,
     ProjectGroupService,
+    ProjectTaskDomainService,
 )
 from domain.services import ContentTicketService, TaskService, AccessListService
 from domain.export import ProjectReleaseService
 from domain.export.ports import ProjectReleaseIdGenerator
 from domain.policies import BirthDatePolicy, ContentTicketValidityPolicy, TaskPolicy
-from domain.ports.access_rule_target_resolution_order import (
-    FixedAccessRuleTargetResolutionOrder,
+from domain.ports.access_rule_responsible_resolution_order import (
+    FixedAccessRuleResponsibleResolutionOrder,
 )
 from domain.ports import (
     ProjectIdGenerator,
@@ -30,7 +31,8 @@ from domain.ports import (
     TaskIdGenerator,
     AccessListIdGenerator,
     ProjectGroupIdGenerator,
-    AccessRuleTargetResolutionOrder,
+    ProjectTaskIdGenerator,
+    AccessRuleResponsibleResolutionOrder,
 )
 from infrastructure.adapters import (
     Uuid4ProjectIdGenerator,
@@ -39,6 +41,7 @@ from infrastructure.adapters import (
     Uuid4ContentIdGenerator,
     Uuid4AccessListIdGenerator,
     Uuid4ProjectGroupIdGenerator,
+    Uuid4ProjectTaskIdGenerator,
     TaskUuid4Generator,
     JsonProjectUnitVisitor,
 )
@@ -76,12 +79,15 @@ class DomainProvider(Provider):
     project_group_id_generator = provide(
         source=Uuid4ProjectGroupIdGenerator, provides=ProjectGroupIdGenerator
     )
+    project_task_id_generator = provide(
+        source=Uuid4ProjectTaskIdGenerator, provides=ProjectTaskIdGenerator
+    )
 
     @provide
-    def provide_access_rule_target_resolution_order(
+    def provide_access_rule_responsible_resolution_order(
         self,
-    ) -> AccessRuleTargetResolutionOrder:
-        return FixedAccessRuleTargetResolutionOrder()
+    ) -> AccessRuleResponsibleResolutionOrder:
+        return FixedAccessRuleResponsibleResolutionOrder()
 
     @provide
     def provide_birthdate_policy(self) -> BirthDatePolicy:
@@ -107,3 +113,4 @@ class DomainProvider(Provider):
     project_release_service = provide(ProjectReleaseService)
     acl_service = provide(AccessListService)
     project_group_service = provide(ProjectGroupService)
+    project_task_domain_service = provide(ProjectTaskDomainService)

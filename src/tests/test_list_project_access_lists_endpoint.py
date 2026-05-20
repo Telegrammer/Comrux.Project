@@ -34,7 +34,7 @@ class StubListProjectAccessListsHandler:
         expected_created_by: UUID4,
         expected_owner_name: str,
         expected_acl_name: str,
-        expected_rule_target: str,
+        expected_rule_responsible: str,
         expected_rule_action: ProjectUnitAction,
     ) -> None:
         self._expected_project_id: UUID4 = expected_project_id
@@ -48,7 +48,7 @@ class StubListProjectAccessListsHandler:
         self._expected_owner_name: str = expected_owner_name
         self._expected_acl_name: str = expected_acl_name
 
-        self._expected_rule_target: str = expected_rule_target
+        self._expected_rule_responsible: str = expected_rule_responsible
         self._expected_rule_action: ProjectUnitAction = expected_rule_action
 
     async def __call__(
@@ -75,7 +75,7 @@ class StubListProjectAccessListsHandler:
                 name=self._expected_acl_name,
                 rules=[
                     UserAccessRule(
-                        target=UUID(self._expected_rule_target),
+                        responsible=UUID(self._expected_rule_responsible),
                         display_name="User (550e84)",
                         action=self._expected_rule_action,
                         type="ALLOW",
@@ -119,7 +119,7 @@ def test_list_project_acl_endpoint_delegates_to_handler_and_returns_response() -
     expected_created_by_str: str = "550e8400-e29b-41d4-a716-446655440010"
     expected_owner_name: str = "Owner Name"
     expected_acl_name: str = "ACL #1"
-    expected_rule_target: str = "550e8400-e29b-41d4-a716-446655440020"
+    expected_rule_responsible: str = "550e8400-e29b-41d4-a716-446655440020"
     expected_rule_action: ProjectUnitAction = ProjectUnitAction.READ
 
     expected_project_id: UUID4 = UUID(expected_project_id_str)  # type: ignore[assignment]
@@ -136,7 +136,7 @@ def test_list_project_acl_endpoint_delegates_to_handler_and_returns_response() -
         expected_created_by=expected_created_by,
         expected_owner_name=expected_owner_name,
         expected_acl_name=expected_acl_name,
-        expected_rule_target=expected_rule_target,
+        expected_rule_responsible=expected_rule_responsible,
         expected_rule_action=expected_rule_action,
     )
 
@@ -190,7 +190,7 @@ def test_list_project_acl_endpoint_delegates_to_handler_and_returns_response() -
     assert result[0].created_by == expected_created_by
     assert result[0].owner_name == expected_owner_name
     assert result[0].name == expected_acl_name
-    assert str(result[0].rules[0].target) == expected_rule_target
+    assert str(result[0].rules[0].responsible) == expected_rule_responsible
     assert result[0].rules[0].action == expected_rule_action
     assert result[0].rules[0].type == "ALLOW"
 

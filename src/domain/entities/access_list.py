@@ -1,85 +1,31 @@
 from dataclasses import dataclass, field
-from abc import abstractmethod, ABC
-from typing import Protocol
 
-from ..enums import ProjectRole, ProjectUnitAction
+from ..enums import ProjectUnitAction
 from ..value_objects import Uuid4, FileName
 from .base import AggregationRoot
-from .user import UserId
 from .project import ProjectId
-from .project_group import ProjectGroupId
-
-
-class AccessRuleTargetVisitor(Protocol):
-    def visit_user[T](self, target: "AccessRuleUserTarget") -> T: ...
-    def visit_role[T](self, target: "AccessRuleRoleTarget") -> T: ...
-    def visit_group[T](self, target: "AccessRuleGroupTarget") -> T: ...
-
-
-@dataclass(frozen=True)
-class AccessRuleTarget[valT](ABC):
-    @abstractmethod
-    def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
-        raise NotImplementedError
-
-
-@dataclass(init=False, frozen=True, eq=False)
-class AccessRuleUserTarget(AccessRuleTarget[UserId]):
-    def __init__(self, user_id: str):
-        object.__setattr__(self, "user_id", UserId(user_id))
-        super().__init__()
-
-    def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
-        return visitor.visit_user(self)
-
-    def __eq__(self, other):
-        return self.user_id == other.user_id
-
-    def __hash__(self):
-        return hash(self.user_id)
-
-
-@dataclass(frozen=True)
-class AccessRuleRoleTarget(AccessRuleTarget):
-    role: ProjectRole
-
-    def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
-        return visitor.visit_role(self)
-
-    def __eq__(self, other: "AccessRuleRoleTarget") -> bool:
-        return self.role == other.role
-
-    def __hash__(self):
-        return hash(self.role)
-
-
-@dataclass(frozen=True, eq=False)
-class AccessRuleGroupTarget(AccessRuleTarget[ProjectGroupId]):
-    group_id: ProjectGroupId
-
-    def accept[T](self, visitor: AccessRuleTargetVisitor) -> T:
-        return visitor.visit_group(self)
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, AccessRuleGroupTarget):
-            return NotImplemented
-        return self.group_id == other.group_id
-
-    def __hash__(self) -> int:
-        return hash(self.group_id)
+from .user import UserId
+from .responsible import (
+    Responsible as AccessRuleResponsible,
+    ResponsibleVisitor as AccessRuleResponsibleVisitor,
+    UserResponsible as AccessRuleUserResponsible,
+    RoleResponsible as AccessRuleRoleResponsible,
+    GroupResponsible as AccessRuleGroupResponsible,
+)
 
 
 @dataclass(frozen=True, eq=False)
 class AccessRule:
-    target: AccessRuleTarget
+    responsible: AccessRuleResponsible
     action: ProjectUnitAction
     is_allow: bool
+    order: int = 0
 
     def __eq__(self, other: "AccessRule") -> bool:
-        return self.target == other.target and self.action == other.action
+        return self.responsible == other.responsible and self.action == other.action
 
     def __hash__(self) -> int:
-        return hash((self.target, self.action))
+        return hash((self.responsible, self.action))
 
 
 @dataclass

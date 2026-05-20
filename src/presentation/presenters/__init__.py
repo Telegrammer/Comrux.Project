@@ -12,4 +12,5 @@ from .project_unit import (
 )
 from .cursor import NameCursorPresenter
 from .access_list import AccessListsPresenter
-from .access_list_create_rule_target import AccessListCreateRuleTargetPresenter
+from .access_list_create_rule_responsible import AccessListCreateRuleResponsiblePresenter
+from .project_task_assignee import ProjectTaskAssigneePresenter

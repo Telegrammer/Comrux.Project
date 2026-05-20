@@ -12,14 +12,13 @@ from domain.entities import (
     AccessListId,
 )
 from domain.entities.document import ContentId
-from application.ports.mappers import DocumentMapper, MappingError
+from application.ports.mappers import DocumentMapper
 from application.ports import Clock
 from application.exceptions import DocumentNotFoundError
 from infrastructure.models import ProjectUnitNode, DocumentAttributes
 
 
 class SqlAlchemyDocumentMapper(DocumentMapper[ProjectUnitNode]):
-
     def __init__(self, clock: Clock, unit_visitor: ProjectUnitVisitor):
         self._unit_visitor: ProjectUnitVisitor = unit_visitor
         self._clock: Clock = clock

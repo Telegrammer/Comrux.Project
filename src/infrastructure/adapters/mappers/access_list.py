@@ -4,10 +4,10 @@ from typing import Sequence
 from domain.entities import AccessList, AccessRule, AccessListId, ProjectId, UserId
 from domain.entities.project_group import ProjectGroupId
 from domain.entities.access_list import (
-    AccessRuleTarget,
-    AccessRuleGroupTarget,
-    AccessRuleRoleTarget,
-    AccessRuleUserTarget,
+    AccessRuleResponsible,
+    AccessRuleGroupResponsible,
+    AccessRuleRoleResponsible,
+    AccessRuleUserResponsible,
 )
 from domain.value_objects import FileName, Name
 from application.models import ProjectAccessListsRead
@@ -15,14 +15,12 @@ from application.ports.mappers import AccessListMapper, MappingError
 from infrastructure.models import (
     AccessList as OrmAccessList,
     AccessRule as OrmAccessRule,
-    AccessRuleUserTarget as OrmUserTarget,
-    AccessRuleRoleTarget as OrmRoleTarget,
-    AccessRuleGroupTarget as OrmGroupTarget,
+    AccessRuleUserResponsible as OrmUserResponsible,
+    AccessRuleRoleResponsible as OrmRoleResponsible,
+    AccessRuleGroupResponsible as OrmGroupResponsible,
 )
 
-from infrastructure.adapters.access_rule_target_collector import (
-    SqlAlchemyAccessRuleTargetCollector,
-)
+from infrastructure.adapters.responsible_collector import SqlAlchemyResponsibleCollector
 
 
 class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
@@ -31,28 +29,30 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
         self._group_names: dict[ProjectGroupId, Name] = {}
 
     @singledispatchmethod
-    def _target_to_domain(self, orm_target: AccessRuleTarget):
-        raise MappingError(f"Unknown target type: {type(orm_target)}")
+    def _responsible_to_domain(self, orm_responsible: AccessRuleResponsible):
+        raise MappingError(f"Unknown responsible type: {type(orm_responsible)}")
 
-    @_target_to_domain.register
-    def _(self, orm_target: OrmUserTarget) -> AccessRuleUserTarget:
+    @_responsible_to_domain.register
+    def _(self, orm_responsible: OrmUserResponsible) -> AccessRuleUserResponsible:
 
-        value: str = str(orm_target.user_id)
-        self._user_names[UserId(value)] = Name(orm_target.user.name)
-        return AccessRuleUserTarget(value)
+        value: str = str(orm_responsible.user_id)
+        self._user_names[UserId(value)] = Name(orm_responsible.user.name)
+        return AccessRuleUserResponsible(value)
 
-    @_target_to_domain.register
-    def _(self, orm_target: OrmRoleTarget) -> AccessRuleRoleTarget:
-        return AccessRuleRoleTarget(role=orm_target.role)
+    @_responsible_to_domain.register
+    def _(self, orm_responsible: OrmRoleResponsible) -> AccessRuleRoleResponsible:
+        return AccessRuleRoleResponsible(role=orm_responsible.role)
 
-    @_target_to_domain.register
-    def _(self, orm_target: OrmGroupTarget) -> AccessRuleGroupTarget:
-        gid = ProjectGroupId(str(orm_target.group_id))
+    @_responsible_to_domain.register
+    def _(self, orm_responsible: OrmGroupResponsible) -> AccessRuleGroupResponsible:
+        gid = ProjectGroupId(str(orm_responsible.group_id))
         group_name = (
-            Name(orm_target.group.name) if orm_target.group is not None else Name(".")
+            Name(orm_responsible.group.name)
+            if orm_responsible.group is not None
+            else Name(".")
         )
         self._group_names[gid] = group_name
-        return AccessRuleGroupTarget(gid)
+        return AccessRuleGroupResponsible(gid)
 
     def to_domain(self, dto: OrmAccessList) -> AccessList:
         return AccessList(
@@ -62,16 +62,17 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
             owner=UserId(str(dto.owner)),
             rules=[
                 AccessRule(
-                    target=self._target_to_domain(rule.target),
+                    responsible=self._responsible_to_domain(rule.responsible),
                     action=rule.action,
                     is_allow=rule.is_allow,
+                    order=rule.order,
                 )
                 for rule in dto.rules
             ],
         )
 
     def to_dto(
-        self, entity: AccessList, visitor: SqlAlchemyAccessRuleTargetCollector
+        self, entity: AccessList, visitor: SqlAlchemyResponsibleCollector
     ) -> OrmAccessList:
 
         return OrmAccessList(
@@ -81,9 +82,10 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
             project_id=entity.project,
             rules=[
                 OrmAccessRule(
-                    target_id=visitor.resolve(rule.target),
+                    responsible_id=visitor.resolve(rule.responsible),
                     action=rule.action,
                     is_allow=rule.is_allow,
+                    order=rule.order,
                 )
                 for rule in entity.rules
             ],
@@ -105,6 +107,6 @@ class SqlAlchemyAccessListMapper(AccessListMapper[OrmAccessList]):
         return ProjectAccessListsRead(
             access_lists=access_lists,
             owners=owners,
-            user_targets=self._user_names,
-            group_targets=self._group_names,
+            user_responsibles=self._user_names,
+            group_responsibles=self._group_names,
         )

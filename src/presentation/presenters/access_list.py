@@ -3,16 +3,16 @@ from domain.entities.user import UserId
 from domain.entities.project_group import ProjectGroupId
 from domain.value_objects import Name
 from domain.entities.access_list import (
-    AccessRuleTargetVisitor,
-    AccessRuleGroupTarget,
-    AccessRuleUserTarget,
-    AccessRuleRoleTarget,
+    AccessRuleResponsibleVisitor,
+    AccessRuleGroupResponsible,
+    AccessRuleUserResponsible,
+    AccessRuleRoleResponsible,
 )
 
 from presentation.models.access_list import UserAccessRule, RoleAccessRule, GroupAccessRule
 
 
-class AccessListsPresenter(AccessRuleTargetVisitor):
+class AccessListsPresenter(AccessRuleResponsibleVisitor):
     def __init__(
         self,
         user_names: dict[UserId, Name],
@@ -23,25 +23,27 @@ class AccessListsPresenter(AccessRuleTargetVisitor):
         self._action: ProjectUnitAction | None = None
         self._type: str | None = None
 
-    def visit_role(self, target: AccessRuleRoleTarget) -> RoleAccessRule:
-        return RoleAccessRule(action=self._action, type=self._type, target=target.role)
+    def visit_role(self, responsible: AccessRuleRoleResponsible) -> RoleAccessRule:
+        return RoleAccessRule(
+            action=self._action, type=self._type, responsible=responsible.role
+        )
 
-    def visit_user(self, target: AccessRuleUserTarget) -> UserAccessRule:
-        user_id: UserId = target.user_id
+    def visit_user(self, responsible: AccessRuleUserResponsible) -> UserAccessRule:
+        user_id: UserId = responsible.user_id
         return UserAccessRule(
             action=self._action,
             type=self._type,
-            target=user_id.value,
-            display_name=f"{self._names[user_id].value} ({target.user_id.value[:6]})",
+            responsible=user_id.value,
+            display_name=f"{self._names[user_id].value} ({responsible.user_id.value[:6]})",
         )
 
-    def visit_group(self, target: AccessRuleGroupTarget) -> GroupAccessRule:
-        group_id = target.group_id
+    def visit_group(self, responsible: AccessRuleGroupResponsible) -> GroupAccessRule:
+        group_id = responsible.group_id
         title = self._group_names.get(group_id, Name("."))
         return GroupAccessRule(
             action=self._action,
             type=self._type,
-            target=group_id.value,
+            responsible=group_id.value,
             display_name=f"{title.value} ({group_id.value[:6]})",
         )
 

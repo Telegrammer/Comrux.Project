@@ -37,6 +37,11 @@ from application.compositions import (
     JoinProjectGroupComposition,
     LeaveProjectGroupComposition,
     ListProjectGroupMembersComposition,
+    CreateProjectTaskComposition,
+    AssignProjectTaskComposition,
+    ListProjectTasksComposition,
+    GetProjectTaskComposition,
+    SetProjectTaskStatusComposition,
 )
 from application.usecases import (
     CreateProjectUsecase,
@@ -72,6 +77,11 @@ from application.usecases import (
     JoinProjectGroupUsecase,
     LeaveProjectGroupUsecase,
     ListProjectGroupMembersUsecase,
+    CreateProjectTaskUsecase,
+    AssignProjectTaskUsecase,
+    ListProjectTasksUsecase,
+    GetProjectTaskUsecase,
+    SetProjectTaskStatusUsecase,
 )
 from application.services import (
     CurrentUserService,
@@ -103,6 +113,8 @@ from application.ports.gateways import (
     AccessListQueryGateway,
     ProjectGroupCommandGateway,
     ProjectGroupQueryGateway,
+    ProjectTaskCommandGateway,
+    ProjectTaskQueryGateway,
 )
 from infrastructure.adapters import (
     TimestampClock,
@@ -118,6 +130,7 @@ from infrastructure.adapters.mappers import (
     ProjectUnitNodeMapper,
     SqlAlchemyAccessListMapper,
     SqlAlchemyProjectGroupMapper,
+    SqlAlchemyProjectTaskMapper,
 )
 from infrastructure.adapters.gateways import (
     HttpContentQueryGateway,
@@ -137,6 +150,8 @@ from infrastructure.adapters.gateways import (
     SqlAclhemyProjectUnitCommandGateway,
     SqlAlchemyProjectGroupCommandGateway,
     SqlAlchemyProjectGroupQueryGateway,
+    SqlAlchemyProjectTaskCommandGateway,
+    SqlAlchemyProjectTaskQueryGateway,
 )
 
 
@@ -244,6 +259,15 @@ class ApplicationProvider(Provider):
         source=SqlAlchemyProjectGroupQueryGateway,
         provides=ProjectGroupQueryGateway,
     )
+    project_task_mapper = provide(SqlAlchemyProjectTaskMapper)
+    project_task_command_gateway = provide(
+        source=SqlAlchemyProjectTaskCommandGateway,
+        provides=ProjectTaskCommandGateway,
+    )
+    project_task_query_gateway = provide(
+        source=SqlAlchemyProjectTaskQueryGateway,
+        provides=ProjectTaskQueryGateway,
+    )
     create_project_usecase = provide(CreateProjectUsecase)
     create_project_composition = provide(CreateProjectComposition)
     list_projects_usecase = provide(ListProjectsUsecase)
@@ -305,3 +329,13 @@ class ApplicationProvider(Provider):
     leave_project_group_composition = provide(LeaveProjectGroupComposition)
     list_project_group_members_usecase = provide(ListProjectGroupMembersUsecase)
     list_project_group_members_composition = provide(ListProjectGroupMembersComposition)
+    create_project_task_usecase = provide(CreateProjectTaskUsecase)
+    create_project_task_composition = provide(CreateProjectTaskComposition)
+    assign_project_task_usecase = provide(AssignProjectTaskUsecase)
+    assign_project_task_composition = provide(AssignProjectTaskComposition)
+    list_project_tasks_usecase = provide(ListProjectTasksUsecase)
+    list_project_tasks_composition = provide(ListProjectTasksComposition)
+    get_project_task_usecase = provide(GetProjectTaskUsecase)
+    get_project_task_composition = provide(GetProjectTaskComposition)
+    set_project_task_status_usecase = provide(SetProjectTaskStatusUsecase)
+    set_project_task_status_composition = provide(SetProjectTaskStatusComposition)

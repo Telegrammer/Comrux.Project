@@ -34,9 +34,9 @@ class DeleteProjectGroupUsecase:
         current_user_id = UserId(context.current_user.id_)
         project_role = context.pinned_project.members.get(current_user_id)
 
-        if (
+        if not (
             context.found_group.owner != current_user_id
-            and project_role != ProjectRole.OWNER
+            or project_role != ProjectRole.OWNER
         ):
             raise AccessDeniedError(
                 "Only group owner or project owner can delete group"

@@ -10,12 +10,15 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import jwt
 
 from application.compositions import DeleteDirectoryComposition, DeleteDocumentComposition
 from application.exceptions import (
     AccessDeniedError,
     DirectoryNotFoundError,
     DocumentNotFoundError,
+    ProjectGroupNotInProjectError,
+    UserNotInProjectGroupError,
 )
 from application.ports.gateways.query_params import ProjectUnitListParams
 from application.ports.gateways.query_params.common import OffsetPagination
@@ -23,6 +26,9 @@ from application.usecases.create_content_ticket import (
     CreateContentTicketRequest,
     CreateContentTicketResponse,
     CreateContentTicketUsecase,
+)
+from presentation.presenters.auth_info.jwt_content_ticket_presenter import (
+    JwtContentTicketPresenter,
 )
 from application.usecases.get_document_content import (
     GetDocumentContentRequest,
@@ -47,11 +53,17 @@ from application.usecases.list_directory_content import (
     ListDirectoryContentRequest,
     ListDirectoryContentUsecase,
 )
-from domain.entities import DirectoryId, DocumentId, ProjectId, UserId
+from domain.entities import (
+    DirectoryId,
+    DocumentId,
+    ProjectGroupId,
+    ProjectId,
+    UserId,
+)
 from domain.entities.access_list import ResolvedUnitPermissions
 from domain.entities.document import ContentId
 from domain.enums import ProjectUnitAction
-from domain.value_objects import FileName, Name
+from domain.value_objects import FileName, HexColor, Name, Title
 
 
 def _project_unit_list_params() -> ProjectUnitListParams:
@@ -231,6 +243,7 @@ def test_create_content_ticket_returns_response_when_read_allowed() -> None:
             context_service=context_service,
             permission_service=permission_service,
             content_ticket_service=content_ticket_service,
+            group_queries=SimpleNamespace(by_id=AsyncMock()),
         )
         request = CreateContentTicketRequest(
             project_id=ProjectId(project_uuid),
@@ -276,6 +289,7 @@ def test_create_content_ticket_raises_when_read_denied() -> None:
             context_service=context_service,
             permission_service=permission_service,
             content_ticket_service=content_ticket_service,
+            group_queries=SimpleNamespace(by_id=AsyncMock()),
         )
         request = CreateContentTicketRequest(
             project_id=ProjectId(project_uuid),
@@ -288,6 +302,237 @@ def test_create_content_ticket_raises_when_read_denied() -> None:
         content_ticket_service.create_ticket.assert_not_called()
 
     asyncio.run(scenario())
+
+
+def test_create_content_ticket_includes_team_when_team_id_is_provided() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000411"
+        document_uuid: str = "00000000-0000-4000-8000-000000000412"
+        group_uuid: str = "00000000-0000-4000-8000-000000000413"
+        now: datetime = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+        current_user_id = UserId("00000000-0000-4000-8000-000000000414")
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_=current_user_id, name=Name("Alice")),
+            pinned_project=SimpleNamespace(id_=ProjectId(project_uuid)),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=SimpleNamespace(value="00000000-0000-4000-8000-000000000415"),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.READ},
+                denied=set(),
+            )
+        )
+        ticket_entity = SimpleNamespace(
+            id_=SimpleNamespace(value="00000000-0000-4000-8000-000000000416"),
+            username=Name("Alice"),
+            user_id=current_user_id,
+            content_ref=context.found_document.content_ref,
+            permissions=[ProjectUnitAction.READ],
+            issued_at=SimpleNamespace(),
+            expire_at=SimpleNamespace(),
+        )
+        content_ticket_service = SimpleNamespace(
+            create_ticket=MagicMock(return_value=ticket_entity),
+        )
+        group = SimpleNamespace(
+            id_=ProjectGroupId(group_uuid),
+            project_id=ProjectId(project_uuid),
+            name=Title("TeamBlue"),
+            color=HexColor("#112233"),
+            participants=[current_user_id],
+        )
+        group_queries = SimpleNamespace(by_id=AsyncMock(return_value=group))
+        clock = SimpleNamespace(now=lambda: now)
+
+        use_case = CreateContentTicketUsecase(
+            clock=clock,
+            context_service=context_service,
+            permission_service=permission_service,
+            content_ticket_service=content_ticket_service,
+            group_queries=group_queries,
+        )
+        request = CreateContentTicketRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+            team_id=ProjectGroupId(group_uuid),
+        )
+
+        result: CreateContentTicketResponse = await use_case(request)
+
+        assert result["team_id"] == group.id_
+        assert result["team_name"] == group.name
+        assert result["team_color"] == group.color
+        group_queries.by_id.assert_awaited_once_with(ProjectGroupId(group_uuid))
+
+    asyncio.run(scenario())
+
+
+def test_create_content_ticket_raises_when_group_not_in_project() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000421"
+        other_project_uuid: str = "00000000-0000-4000-8000-000000000422"
+        document_uuid: str = "00000000-0000-4000-8000-000000000423"
+        group_uuid: str = "00000000-0000-4000-8000-000000000424"
+
+        current_user_id = UserId("00000000-0000-4000-8000-000000000425")
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_=current_user_id, name=Name("Alice")),
+            pinned_project=SimpleNamespace(id_=ProjectId(project_uuid)),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=SimpleNamespace(value="content-1"),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.READ},
+                denied=set(),
+            )
+        )
+        group = SimpleNamespace(
+            id_=ProjectGroupId(group_uuid),
+            project_id=ProjectId(other_project_uuid),
+            participants=[current_user_id],
+        )
+        group_queries = SimpleNamespace(by_id=AsyncMock(return_value=group))
+
+        use_case = CreateContentTicketUsecase(
+            clock=SimpleNamespace(now=lambda: datetime.now(timezone.utc)),
+            context_service=context_service,
+            permission_service=permission_service,
+            content_ticket_service=SimpleNamespace(create_ticket=MagicMock()),
+            group_queries=group_queries,
+        )
+        request = CreateContentTicketRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+            team_id=ProjectGroupId(group_uuid),
+        )
+
+        with pytest.raises(ProjectGroupNotInProjectError):
+            await use_case(request)
+
+    asyncio.run(scenario())
+
+
+def test_create_content_ticket_raises_when_user_not_in_group() -> None:
+    async def scenario() -> None:
+        project_uuid: str = "00000000-0000-4000-8000-000000000431"
+        document_uuid: str = "00000000-0000-4000-8000-000000000432"
+        group_uuid: str = "00000000-0000-4000-8000-000000000433"
+
+        current_user_id = UserId("00000000-0000-4000-8000-000000000434")
+        context = SimpleNamespace(
+            current_user=SimpleNamespace(id_=current_user_id, name=Name("Alice")),
+            pinned_project=SimpleNamespace(id_=ProjectId(project_uuid)),
+            found_document=SimpleNamespace(
+                id_=document_uuid,
+                content_ref=SimpleNamespace(value="content-2"),
+            ),
+        )
+        context_service = AsyncMock(return_value=context)
+        permission_service = AsyncMock(
+            return_value=ResolvedUnitPermissions(
+                allowed={ProjectUnitAction.READ},
+                denied=set(),
+            )
+        )
+        group = SimpleNamespace(
+            id_=ProjectGroupId(group_uuid),
+            project_id=ProjectId(project_uuid),
+            participants=[UserId("00000000-0000-4000-8000-000000000435")],
+        )
+        group_queries = SimpleNamespace(by_id=AsyncMock(return_value=group))
+        ticket_service = SimpleNamespace(create_ticket=MagicMock())
+
+        use_case = CreateContentTicketUsecase(
+            clock=SimpleNamespace(now=lambda: datetime.now(timezone.utc)),
+            context_service=context_service,
+            permission_service=permission_service,
+            content_ticket_service=ticket_service,
+            group_queries=group_queries,
+        )
+        request = CreateContentTicketRequest(
+            project_id=ProjectId(project_uuid),
+            document_id=DocumentId(document_uuid),
+            team_id=ProjectGroupId(group_uuid),
+        )
+
+        with pytest.raises(UserNotInProjectGroupError):
+            await use_case(request)
+        ticket_service.create_ticket.assert_not_called()
+
+    asyncio.run(scenario())
+
+
+def test_jwt_content_ticket_presenter_keeps_base_payload_without_team() -> None:
+    presenter = JwtContentTicketPresenter(algorithm="HS256", private_key="secret")
+    now = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    exp = datetime(2099, 1, 2, tzinfo=timezone.utc)
+    response: CreateContentTicketResponse = {
+        "ticket_id": SimpleNamespace(value="ticket-1"),
+        "username": Name("Alice"),
+        "user_id": UserId("00000000-0000-4000-8000-000000000501"),
+        "project_id": "00000000-0000-4000-8000-000000000502",
+        "content_ref": ContentId("00000000-0000-4000-8000-000000000503"),
+        "permissions": [ProjectUnitAction.READ],
+        "issued_at": now,
+        "expire_at": exp,
+    }
+
+    token = presenter.present(response)
+    payload = jwt.decode(
+        token,
+        key="secret",
+        algorithms=["HS256"],
+        options={"verify_exp": False, "verify_iat": False},
+    )
+
+    assert payload["jti"] == "ticket-1"
+    assert payload["usr"] == "Alice"
+    assert payload["sub"] == "00000000-0000-4000-8000-000000000501"
+    assert payload["grp"] == "00000000-0000-4000-8000-000000000502"
+    assert payload["perms"] == [ProjectUnitAction.READ.value]
+    assert "tid" not in payload
+    assert "tnm" not in payload
+    assert "tcl" not in payload
+
+
+def test_jwt_content_ticket_presenter_appends_team_claims_when_present() -> None:
+    presenter = JwtContentTicketPresenter(algorithm="HS256", private_key="secret")
+    now = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    exp = datetime(2099, 1, 2, tzinfo=timezone.utc)
+    response: CreateContentTicketResponse = {
+        "ticket_id": SimpleNamespace(value="ticket-2"),
+        "username": Name("Alice"),
+        "user_id": UserId("00000000-0000-4000-8000-000000000511"),
+        "project_id": "00000000-0000-4000-8000-000000000512",
+        "content_ref": ContentId("00000000-0000-4000-8000-000000000513"),
+        "permissions": [ProjectUnitAction.READ],
+        "issued_at": now,
+        "expire_at": exp,
+        "team_id": ProjectGroupId("00000000-0000-4000-8000-000000000514"),
+        "team_name": Title("BlueTeam"),
+        "team_color": HexColor("#123abc"),
+    }
+
+    token = presenter.present(response)
+    payload = jwt.decode(
+        token,
+        key="secret",
+        algorithms=["HS256"],
+        options={"verify_exp": False, "verify_iat": False},
+    )
+
+    assert payload["tid"] == "00000000-0000-4000-8000-000000000514"
+    assert payload["tnm"] == "BlueTeam"
+    assert payload["tcl"] == "#123abc"
 
 
 def test_get_document_content_returns_bytes_for_public_project_without_user() -> None:

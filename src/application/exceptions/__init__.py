@@ -28,6 +28,11 @@ from .document import (
     DocumentNotInProjectError,
 )
 from .task import TaskAlreadyExistsError
+from .project_task import (
+    ProjectTaskAlreadyExistsError,
+    ProjectTaskNotFoundError,
+    ProjectTaskNotInProjectError,
+)
 from .access_list import (
     AccessListAlreadyExistsError,
     AccessListNotFoundError,
@@ -45,4 +50,5 @@ from .project_group import (
     ProjectGroupNotFoundError,
     ProjectGroupNotInProjectError,
     ProjectGroupParticipantNotInProjectError,
+    UserNotInProjectGroupError,
 )

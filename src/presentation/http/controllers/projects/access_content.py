@@ -1,7 +1,7 @@
 from typing import Annotated
 from pydantic import UUID4
 from starlette import status
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi_error_map import ErrorAwareRouter
 from dishka.integrations.fastapi import FromDishka, inject
@@ -14,6 +14,8 @@ from application.exceptions import (
     DocumentNotFoundError,
     DocumentNotInProjectError,
     AccessDeniedError,
+    ProjectGroupNotInProjectError,
+    UserNotInProjectGroupError,
 )
 from application.ports.mappers.errors import MappingError
 from application.ports.gateways.errors import GatewayFailedError
@@ -40,6 +42,8 @@ def create_content_ticket_router() -> APIRouter:
             CurrentUserNotFoundError: status.HTTP_401_UNAUTHORIZED,
             ExpiredAccessKeyError: status.HTTP_401_UNAUTHORIZED,
             AccessDeniedError: status.HTTP_403_FORBIDDEN,
+            ProjectGroupNotInProjectError: status.HTTP_409_CONFLICT,
+            UserNotInProjectGroupError: status.HTTP_409_CONFLICT,
             GatewayFailedError: service_unavailable_rule,
         },
         default_on_error=log_info,
@@ -52,8 +56,9 @@ def create_content_ticket_router() -> APIRouter:
         document_id: Annotated[UUID4, Path()],
         handler: FromDishka[CreateContentTicketHandler],
         token: HTTPAuthorizationCredentials = Depends(http_bearer),
+        team_id: Annotated[UUID4 | None, Query()] = None,
     ):
 
-        return await handler(project_id, document_id)
+        return await handler(project_id, document_id, team_id)
 
     return router

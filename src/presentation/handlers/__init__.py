@@ -30,3 +30,7 @@ from .list_project_groups import ListProjectGroupsHandler
 from .join_project_group import JoinProjectGroupHandler
 from .leave_project_group import LeaveProjectGroupHandler
 from .list_project_group_members import ListProjectGroupMembersHandler
+from .create_project_task import CreateProjectTaskHandler
+from .list_project_tasks import ListProjectTasksHandler
+from .get_project_task import GetProjectTaskHandler
+from .set_project_task_status import SetProjectTaskStatusHandler

@@ -1,37 +1,39 @@
 # Тесты усиливают protection и refactor-resistance для сущности access_list и связанных доменных объектов.
-# target_file: src/tests/test_access_list.py — проверка создания и поведения AccessList, AccessRule, AccessRuleTarget и AccessListService.
+# target_file: src/tests/test_access_list.py — проверка создания и поведения AccessList, AccessRule, AccessRuleResponsible и AccessListService.
 
 import pytest
 
 from domain.entities import AccessList, AccessListId, AccessRule, ProjectId, UserId
 from domain.entities.access_list import (
-    AccessRuleRoleTarget,
-    AccessRuleTarget,
-    AccessRuleUserTarget,
+    AccessRuleGroupResponsible,
+    AccessRuleRoleResponsible,
+    AccessRuleResponsible,
+    AccessRuleUserResponsible,
 )
+from domain.entities.project_group import ProjectGroupId
 from domain.enums import ProjectRole, ProjectUnitAction
 from domain.exceptions import DomainFieldError
 from domain.ports.id_generators import AccessListIdGenerator
 from domain.services import AccessListService
 from domain.value_objects import FileName
-# --- AccessRuleUserTarget ---
+# --- AccessRuleUserResponsible ---
 
 
-def _make_access_rule_user_target(identifier: str) -> AccessRuleUserTarget:
-    # `AccessRuleUserTarget` в текущей модели может быть `frozen=True`,
+def _make_access_rule_user_target(identifier: str) -> AccessRuleUserResponsible:
+    # `AccessRuleUserResponsible` в текущей модели может быть `frozen=True`,
     # поэтому прямой вызов __init__ иногда ломается.
     # Для unit-тестов создаём инстанс без __init__ и выставляем поле вручную.
-    target: AccessRuleUserTarget = object.__new__(AccessRuleUserTarget)
+    target: AccessRuleUserResponsible = object.__new__(AccessRuleUserResponsible)
     field_name: str = (
         "owner"
-        if "owner" in getattr(AccessRuleUserTarget, "__annotations__", {})
+        if "owner" in getattr(AccessRuleUserResponsible, "__annotations__", {})
         else "user_id"
     )
     object.__setattr__(target, field_name, UserId(identifier))
     return target
 
 
-def _access_rule_user_target_id_value(target: AccessRuleUserTarget) -> str:
+def _access_rule_user_target_id_value(target: AccessRuleUserResponsible) -> str:
     maybe_owner: UserId | None = getattr(target, "owner", None)
     if maybe_owner is not None:
         return maybe_owner.value
@@ -41,21 +43,21 @@ def _access_rule_user_target_id_value(target: AccessRuleUserTarget) -> str:
 def test_access_rule_user_target_creates_with_valid_uuid() -> None:
     user_uuid: str = "550e8400-e29b-41d4-a716-446655440000"
 
-    target: AccessRuleUserTarget = _make_access_rule_user_target(user_uuid)
+    target: AccessRuleUserResponsible = _make_access_rule_user_target(user_uuid)
 
     assert _access_rule_user_target_id_value(target) == user_uuid
-    assert isinstance(target, AccessRuleTarget)
+    assert isinstance(target, AccessRuleResponsible)
 
 
 def test_access_rule_user_target_accepts_visitor() -> None:
     user_uuid: str = "550e8400-e29b-41d4-a716-446655440000"
-    target: AccessRuleUserTarget = _make_access_rule_user_target(user_uuid)
+    target: AccessRuleUserResponsible = _make_access_rule_user_target(user_uuid)
 
     class TestVisitor:
-        def visit_user(self, t: AccessRuleUserTarget) -> str:
+        def visit_user(self, t: AccessRuleUserResponsible) -> str:
             return f"user:{_access_rule_user_target_id_value(t)}"
 
-        def visit_role(self, t: AccessRuleRoleTarget) -> str:
+        def visit_role(self, t: AccessRuleRoleResponsible) -> str:
             return "role"
 
     result: str = target.accept(TestVisitor())
@@ -63,24 +65,24 @@ def test_access_rule_user_target_accepts_visitor() -> None:
     assert result == f"user:{user_uuid}"
 
 
-# --- AccessRuleRoleTarget ---
+# --- AccessRuleRoleResponsible ---
 
 
 def test_access_rule_role_target_creates_with_role() -> None:
-    target: AccessRuleRoleTarget = AccessRuleRoleTarget(role=ProjectRole.OWNER)
+    target: AccessRuleRoleResponsible = AccessRuleRoleResponsible(role=ProjectRole.OWNER)
 
     assert target.role == ProjectRole.OWNER
-    assert isinstance(target, AccessRuleTarget)
+    assert isinstance(target, AccessRuleResponsible)
 
 
 def test_access_rule_role_target_accepts_visitor() -> None:
-    target: AccessRuleRoleTarget = AccessRuleRoleTarget(role=ProjectRole.MEMBER)
+    target: AccessRuleRoleResponsible = AccessRuleRoleResponsible(role=ProjectRole.MEMBER)
 
     class TestVisitor:
-        def visit_user(self, t: AccessRuleUserTarget) -> str:
+        def visit_user(self, t: AccessRuleUserResponsible) -> str:
             return "user"
 
-        def visit_role(self, t: AccessRuleRoleTarget) -> str:
+        def visit_role(self, t: AccessRuleRoleResponsible) -> str:
             return f"role:{t.role}"
 
     result: str = target.accept(TestVisitor())
@@ -92,28 +94,28 @@ def test_access_rule_role_target_accepts_visitor() -> None:
 
 
 def test_access_rule_creates_with_user_target() -> None:
-    user_target: AccessRuleUserTarget = _make_access_rule_user_target(
+    user_target: AccessRuleUserResponsible = _make_access_rule_user_target(
         "550e8400-e29b-41d4-a716-446655440000"
     )
 
     rule: AccessRule = AccessRule(
-        target=user_target,
+        responsible=user_target,
         action=ProjectUnitAction.READ,
         is_allow=True,
     )
 
-    assert rule.target == user_target
+    assert rule.responsible == user_target
     assert rule.action == ProjectUnitAction.READ
     assert rule.is_allow is True
 
 
 def test_access_rule_creates_with_deny_action() -> None:
-    user_target: AccessRuleUserTarget = _make_access_rule_user_target(
+    user_target: AccessRuleUserResponsible = _make_access_rule_user_target(
         "550e8400-e29b-41d4-a716-446655440001"
     )
 
     rule: AccessRule = AccessRule(
-        target=user_target,
+        responsible=user_target,
         action=ProjectUnitAction.WRITE,
         is_allow=False,
     )
@@ -147,7 +149,7 @@ def test_access_list_creates_with_required_fields() -> None:
     project_id: ProjectId = ProjectId("550e8400-e29b-41d4-a716-446655440004")
     owner_id: UserId = UserId("550e8400-e29b-41d4-a716-446655440005")
     rule: AccessRule = AccessRule(
-        target=_make_access_rule_user_target("550e8400-e29b-41d4-a716-446655440005"),
+        responsible=_make_access_rule_user_target("550e8400-e29b-41d4-a716-446655440005"),
         action=ProjectUnitAction.READ,
         is_allow=True,
     )
@@ -189,14 +191,14 @@ def test_access_list_creates_with_multiple_rules() -> None:
     access_list_id: AccessListId = AccessListId("550e8400-e29b-41d4-a716-446655440008")
     rules: list[AccessRule] = [
         AccessRule(
-            target=_make_access_rule_user_target(
+            responsible=_make_access_rule_user_target(
                 "550e8400-e29b-41d4-a716-446655440009"
             ),
             action=ProjectUnitAction.READ,
             is_allow=True,
         ),
         AccessRule(
-            target=_make_access_rule_user_target(
+            responsible=_make_access_rule_user_target(
                 "550e8400-e29b-41d4-a716-44665544000c"
             ),
             action=ProjectUnitAction.WRITE,
@@ -252,13 +254,13 @@ def mock_access_list_id_generator() -> AccessListIdGenerator:
 
 @pytest.fixture
 def access_list_service(mock_access_list_id_generator: AccessListIdGenerator) -> AccessListService:
-    from domain.ports.access_rule_target_resolution_order import (
-        FixedAccessRuleTargetResolutionOrder,
+    from domain.ports.access_rule_responsible_resolution_order import (
+        FixedAccessRuleResponsibleResolutionOrder,
     )
 
     return AccessListService(
         id_generator=mock_access_list_id_generator,
-        target_order=FixedAccessRuleTargetResolutionOrder(),
+        responsible_order=FixedAccessRuleResponsibleResolutionOrder(),
     )
 
 
@@ -274,7 +276,7 @@ def test_access_list_service_creates_access_list(
     mock_project.id_ = "550e8400-e29b-41d4-a716-446655440011"
     rules: list[AccessRule] = [
         AccessRule(
-            target=_make_access_rule_user_target(
+            responsible=_make_access_rule_user_target(
                 "550e8400-e29b-41d4-a716-446655440012"
             ),
             action=ProjectUnitAction.READ,
@@ -315,3 +317,66 @@ def test_access_list_service_creates_access_list_with_empty_rules(
     )
 
     assert access_list.rules == []
+
+
+def test_access_list_service_assigns_order_by_target_type_and_input_sequence(
+    access_list_service: AccessListService,
+) -> None:
+    from unittest.mock import Mock
+
+    mock_owner: Mock = Mock()
+    mock_owner.id_ = "550e8400-e29b-41d4-a716-446655440151"
+    mock_project: Mock = Mock()
+    mock_project.id_ = "550e8400-e29b-41d4-a716-446655440152"
+    mock_project.members = {}
+
+    g1 = ProjectGroupId("550e8400-e29b-41d4-a716-446655440161")
+    g2 = ProjectGroupId("550e8400-e29b-41d4-a716-446655440162")
+    g3 = ProjectGroupId("550e8400-e29b-41d4-a716-446655440163")
+    g4 = ProjectGroupId("550e8400-e29b-41d4-a716-446655440164")
+
+    rules: list[AccessRule] = [
+        AccessRule(AccessRuleGroupResponsible(g1), ProjectUnitAction.READ, True),
+        AccessRule(
+            _make_access_rule_user_target("550e8400-e29b-41d4-a716-446655440171"),
+            ProjectUnitAction.READ,
+            True,
+        ),
+        AccessRule(
+            AccessRuleRoleResponsible(role=ProjectRole.MEMBER),
+            ProjectUnitAction.READ,
+            True,
+        ),
+        AccessRule(AccessRuleGroupResponsible(g2), ProjectUnitAction.WRITE, True),
+        AccessRule(
+            _make_access_rule_user_target("550e8400-e29b-41d4-a716-446655440172"),
+            ProjectUnitAction.WRITE,
+            True,
+        ),
+        AccessRule(AccessRuleGroupResponsible(g3), ProjectUnitAction.EXECUTE, True),
+        AccessRule(
+            AccessRuleRoleResponsible(role=ProjectRole.LEAD),
+            ProjectUnitAction.EXECUTE,
+            True,
+        ),
+        AccessRule(AccessRuleGroupResponsible(g4), ProjectUnitAction.SECURE, True),
+    ]
+
+    access_list: AccessList = access_list_service.create_access_list(
+        name=FileName("Ordered Rules"),
+        owner=mock_owner,
+        project=mock_project,
+        rules=rules,
+    )
+
+    assert [type(rule.responsible) for rule in access_list.rules] == [
+        AccessRuleUserResponsible,
+        AccessRuleUserResponsible,
+        AccessRuleGroupResponsible,
+        AccessRuleGroupResponsible,
+        AccessRuleGroupResponsible,
+        AccessRuleGroupResponsible,
+        AccessRuleRoleResponsible,
+        AccessRuleRoleResponsible,
+    ]
+    assert [rule.order for rule in access_list.rules] == [0, 1, 0, 1, 2, 3, 0, 1]

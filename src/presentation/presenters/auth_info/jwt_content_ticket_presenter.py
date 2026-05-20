@@ -1,12 +1,10 @@
 from typing import TypedDict
-from datetime import datetime
 from application.usecases import CreateContentTicketResponse
 from .base import ContentTicketPresenter
 import jwt
 
 
-class ContentTicketPayload(TypedDict):
-
+class BaseContentTicketPayload(TypedDict):
     jti: str
     usr: str
     sub: str
@@ -17,6 +15,12 @@ class ContentTicketPayload(TypedDict):
     exp: float
 
 
+class ContentTicketPayload(BaseContentTicketPayload, total=False):
+    tid: str
+    tnm: str
+    tcl: str
+
+
 class JwtContentTicketPresenter(ContentTicketPresenter):
 
     def __init__(self, algorithm: str, private_key: str):
@@ -24,16 +28,20 @@ class JwtContentTicketPresenter(ContentTicketPresenter):
         self._algorithm = algorithm
 
     def present(self, response: CreateContentTicketResponse) -> str:
-        payload: ContentTicketPayload = ContentTicketPayload(
-            jti=response["ticket_id"],
-            usr=response["username"],
-            sub=response["user_id"],
-            ref=response["content_ref"],
-            grp=response["project_id"],
-            perms=response["permissions"],
-            iat=response["issued_at"].timestamp(),
-            exp=response["expire_at"].timestamp(),
-        )
+        payload: ContentTicketPayload = {
+            "jti": response["ticket_id"],
+            "usr": response["username"],
+            "sub": response["user_id"],
+            "ref": response["content_ref"],
+            "grp": response["project_id"],
+            "perms": [permission.value for permission in response["permissions"]],
+            "iat": response["issued_at"].timestamp(),
+            "exp": response["expire_at"].timestamp(),
+        }
+        if "team_id" in response:
+            payload["tid"] = response["team_id"]
+            payload["tnm"] = response["team_name"]
+            payload["tcl"] = response["team_color"]
         return jwt.encode(
             payload=payload, key=self._private_key, algorithm=self._algorithm
         )

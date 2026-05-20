@@ -29,4 +29,10 @@ class ProjectGroup(Base):
         lazy="selectin",
     )
 
-    __table_args__ = (UniqueConstraint("project_id", "name"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "name",
+            "project_id",
+            name="uq_project_groups_name_project_id",
+        ),
+    )

@@ -13,12 +13,17 @@ class CreateContentTicketHandler:
         self._presenter: ContentTicketPresenter = presenter
 
     async def __call__(
-        self, project_id: UUID4, document_id: UUID4
+        self,
+        project_id: UUID4,
+        document_id: UUID4,
+        team_id: UUID4 | None = None,
     ) -> ContentTicketCreated:
 
         response: CreateContentTicketResponse = await self._usecase(
             CreateContentTicketRequest.from_primitives(
-                str(project_id), str(document_id)
+                str(project_id),
+                str(document_id),
+                str(team_id) if team_id is not None else None,
             )
         )
         return ContentTicketCreated(ticket=self._presenter.present(response))

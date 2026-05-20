@@ -22,3 +22,4 @@ from .filter_visitor import FilterVisitor
 from .task import TaskListParams
 from .access_list import AccessListsParams
 from .project_group import ProjectGroupFilterField, ProjectGroupListParams
+from .project_task import ProjectTaskFilterField, ProjectTaskListParams

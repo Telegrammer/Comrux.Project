@@ -8,7 +8,6 @@ from domain.exceptions import ProjectMustHaveOwnerError, MemberNotFoundError
 
 
 class ProjectService:
-
     def __init__(self, id_generator: ProjectIdGenerator):
         self._id_generator = id_generator
 
@@ -41,8 +40,8 @@ class ProjectService:
         )
 
     def add_member(self, project: Project, member: UserId, now: datetime) -> Project:
-
-        project.members[UserId(member)] = ProjectRole.MEMBER
+        if UserId(member) not in project.members.keys():
+            project.members[UserId(member)] = ProjectRole.MEMBER
 
         return Project(
             id_=ProjectId(project.id_),

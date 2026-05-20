@@ -13,7 +13,8 @@ from presentation.presenters import (
     ContentTicketPresenter,
     JwtContentTicketPresenter,
     PydanticProjectUnitVisitor,
-    AccessListCreateRuleTargetPresenter,
+    AccessListCreateRuleResponsiblePresenter,
+    ProjectTaskAssigneePresenter,
 )
 from presentation.handlers import (
     CreateProjectHandler,
@@ -48,6 +49,10 @@ from presentation.handlers import (
     JoinProjectGroupHandler,
     LeaveProjectGroupHandler,
     ListProjectGroupMembersHandler,
+    CreateProjectTaskHandler,
+    ListProjectTasksHandler,
+    GetProjectTaskHandler,
+    SetProjectTaskStatusHandler,
 )
 from presentation.http.middleware.extratctors.auth_info.bearer import (
     BearerAuthInfoExtractor,
@@ -113,9 +118,10 @@ class PresentationProvider(Provider):
     get_user_handler = provide(GetUserHandler)
     list_users_handler = provide(ListUsersHandler)
     get_current_user_handler = provide(GetCurrentUserHandler)
-    access_list_create_rule_target_presenter = provide(
-        AccessListCreateRuleTargetPresenter
+    access_list_create_rule_responsible_presenter = provide(
+        AccessListCreateRuleResponsiblePresenter
     )
+    project_task_assignee_presenter = provide(ProjectTaskAssigneePresenter)
     create_access_list_handler = provide(CreateAccessListHandler)
     list_access_lists_handler = provide(ListProjectAccessListsHandler)
     delete_access_list_handler = provide(DeleteAccessListHandler)
@@ -127,6 +133,10 @@ class PresentationProvider(Provider):
     join_project_group_handler = provide(JoinProjectGroupHandler)
     leave_project_group_handler = provide(LeaveProjectGroupHandler)
     list_project_group_members_handler = provide(ListProjectGroupMembersHandler)
+    create_project_task_handler = provide(CreateProjectTaskHandler)
+    list_project_tasks_handler = provide(ListProjectTasksHandler)
+    get_project_task_handler = provide(GetProjectTaskHandler)
+    set_project_task_status_handler = provide(SetProjectTaskStatusHandler)
 
     @provide
     def provide_list_dir_content(

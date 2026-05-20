@@ -29,3 +29,8 @@ from .list_project_groups import ListProjectGroupsComposition
 from .join_project_group import JoinProjectGroupComposition
 from .leave_project_group import LeaveProjectGroupComposition
 from .list_project_group_members import ListProjectGroupMembersComposition
+from .create_project_task import CreateProjectTaskComposition
+from .assign_project_task import AssignProjectTaskComposition
+from .list_project_tasks import ListProjectTasksComposition
+from .set_project_task_status import SetProjectTaskStatusComposition
+from .get_project_task import GetProjectTaskComposition

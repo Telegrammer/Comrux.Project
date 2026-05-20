@@ -1,4 +1,4 @@
-from typing import TypedDict, Sequence
+from typing import TypedDict
 
 from domain.value_objects import FileName, Name
 from domain.entities import (
@@ -27,13 +27,6 @@ class ListProjectAccessListsRequest:
         return cls(project_id=ProjectId(project_id))
 
 
-@dataclass
-class AccessListsQueryResponse:
-    acess_lists: Sequence[AccessList]
-    owners: Sequence[Name]
-    user_targets: dict[UserId, Name]
-
-
 class ListProjectAccessListsElementResponse(TypedDict):
     id_: AccessListId
     name: FileName
@@ -56,8 +49,8 @@ class ListProjectAccessListsElementResponse(TypedDict):
 
 class ListProjectAccessListResponse(TypedDict):
     access_lists: list[ListProjectAccessListsElementResponse]
-    user_targets: dict[UserId, Name]
-    group_targets: dict[ProjectGroupId, Name]
+    user_responsibles: dict[UserId, Name]
+    group_responsibles: dict[ProjectGroupId, Name]
 
 
 class ListAccessListsUsecase:
@@ -86,6 +79,6 @@ class ListAccessListsUsecase:
                     access_lists_info.access_lists, access_lists_info.owners
                 )
             ],
-            user_targets=access_lists_info.user_targets,
-            group_targets=access_lists_info.group_targets,
+            user_responsibles=access_lists_info.user_responsibles,
+            group_responsibles=access_lists_info.group_responsibles,
         )

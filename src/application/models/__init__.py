@@ -1,1 +1,2 @@
 from .access_list import ProjectAccessListsRead
+from .project_task import ProjectTaskDetailsRead, ProjectTaskGroupAssigneeRead

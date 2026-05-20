@@ -1,6 +1,3 @@
-__all__ = ["TaskWorker"]
-
-
 import logging
 from typing import Sequence
 from datetime import datetime
@@ -20,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessTasksComposition:
-
     def __init__(
         self,
         clock: Clock,
@@ -37,18 +33,18 @@ class ProcessTasksComposition:
 
     async def __call__(self, search_params: TaskListParams) -> None:
 
-        logging.info(
-            "Fetching new tasks with resend time less then %s",
-            search_params.current_resend_time,
-        )
         async with self._unit_of_work:
-            unprocessed_tasks: Sequence[Task] = (
-                await self._commands.claim_created_tasks(search_params)
-            )
+            unprocessed_tasks: Sequence[
+                Task
+            ] = await self._commands.claim_created_tasks(search_params)
 
         if not unprocessed_tasks:
-            logging.info("There is no new created tasks")
             return
+
+        logging.info(
+            "Found new tasks with resend time less then %s",
+            search_params.current_resend_time,
+        )
 
         processed_tasks: list[Task] = self._task_service.process_tasks(
             unprocessed_tasks
